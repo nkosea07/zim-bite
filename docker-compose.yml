@@ -3,9 +3,9 @@ services:
   postgres:
     image: postgis/postgis:16-3.4
     environment:
-      POSTGRES_USER: zimbite
-      POSTGRES_PASSWORD: zimbite
-      POSTGRES_DB: zimbite
+      POSTGRES_USER: ${POSTGRES_USER:-zimbite}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-zimbite}
     ports:
       - "5432:5432"
     volumes:

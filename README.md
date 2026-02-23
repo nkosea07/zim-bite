@@ -28,11 +28,14 @@ On-demand breakfast delivery platform for Zimbabwe. Hot breakfast delivered betw
 
 1. Build backend modules:
    `mvn clean install -DskipTests`
-2. Start infrastructure dependencies:
+2. Create local env file:
+   `cp .env.example .env`
+   Set `POSTGRES_PASSWORD` in `.env` before starting services.
+3. Start infrastructure dependencies:
    `docker-compose up -d`
-3. Run a service locally (example):
+4. Run a service locally (example):
    `mvn -pl services/auth-service spring-boot:run`
-4. Start frontend (from `frontend/web`):
+5. Start frontend (from `frontend/web`):
    `npm install && npm run dev`
 
 ## Documentation
