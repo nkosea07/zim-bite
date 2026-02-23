@@ -1,41 +1,107 @@
 package com.zimbite.order.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zimbite.order.model.dto.OrderResponse;
 import com.zimbite.order.model.dto.PlaceOrderRequest;
+import com.zimbite.order.model.entity.OrderEntity;
+import com.zimbite.order.model.entity.OrderItemEntity;
+import com.zimbite.order.model.entity.OrderOutboxEventEntity;
+import com.zimbite.order.repository.OrderItemRepository;
+import com.zimbite.order.repository.OrderOutboxEventRepository;
+import com.zimbite.order.repository.OrderRepository;
+import com.zimbite.shared.messaging.Topics;
 import com.zimbite.shared.messaging.contract.OrderCreatedEvent;
+import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
 @Service
 public class OrderService {
 
-  private final Map<UUID, OrderResponse> orders = new ConcurrentHashMap<>();
-  private final Map<UUID, OrderCreatedEvent> outbox = new ConcurrentHashMap<>();
+  private static final BigDecimal BASE_UNIT_PRICE = BigDecimal.valueOf(5);
 
+  private final OrderRepository orderRepository;
+  private final OrderItemRepository orderItemRepository;
+  private final OrderOutboxEventRepository outboxEventRepository;
+  private final ObjectMapper objectMapper;
+
+  public OrderService(
+      OrderRepository orderRepository,
+      OrderItemRepository orderItemRepository,
+      OrderOutboxEventRepository outboxEventRepository,
+      ObjectMapper objectMapper
+  ) {
+    this.orderRepository = orderRepository;
+    this.orderItemRepository = orderItemRepository;
+    this.outboxEventRepository = outboxEventRepository;
+    this.objectMapper = objectMapper;
+  }
+
+  @Transactional
   public OrderResponse placeOrder(PlaceOrderRequest request) {
     UUID orderId = UUID.randomUUID();
-    BigDecimal total = BigDecimal.valueOf(request.items().stream().mapToInt(i -> i.quantity()).sum()).multiply(BigDecimal.valueOf(5));
+    BigDecimal total = BASE_UNIT_PRICE.multiply(BigDecimal.valueOf(request.items().stream().mapToInt(i -> i.quantity()).sum()));
 
-    OrderResponse response = new OrderResponse(orderId, "PENDING_PAYMENT", total, request.currency());
-    orders.put(orderId, response);
+    OrderEntity order = new OrderEntity();
+    order.setId(orderId);
+    order.setUserId(request.userId());
+    order.setVendorId(request.vendorId());
+    order.setStatus("PENDING_PAYMENT");
+    order.setTotalAmount(total);
+    order.setCurrency(request.currency());
+    order.setCreatedAt(OffsetDateTime.now());
+    orderRepository.save(order);
 
-    outbox.put(orderId, new OrderCreatedEvent(
+    request.items().forEach(i -> {
+      OrderItemEntity item = new OrderItemEntity();
+      item.setId(UUID.randomUUID());
+      item.setOrderId(orderId);
+      item.setMenuItemId(i.menuItemId());
+      item.setQuantity(i.quantity());
+      item.setUnitPrice(BASE_UNIT_PRICE);
+      item.setCreatedAt(OffsetDateTime.now());
+      orderItemRepository.save(item);
+    });
+
+    OrderCreatedEvent event = new OrderCreatedEvent(
         orderId,
         request.userId(),
         request.vendorId(),
         total,
         request.currency(),
         OffsetDateTime.now()
-    ));
+    );
+    saveOutbox(orderId, Topics.ORDER_CREATED, event);
 
-    return response;
+    return new OrderResponse(order.getId(), order.getStatus(), order.getTotalAmount(), order.getCurrency());
   }
 
+  @Transactional
   public OrderResponse getOrder(UUID orderId) {
-    return orders.get(orderId);
+    return orderRepository.findById(orderId)
+        .map(o -> new OrderResponse(o.getId(), o.getStatus(), o.getTotalAmount(), o.getCurrency()))
+        .orElse(null);
+  }
+
+  private void saveOutbox(UUID aggregateId, String eventType, Object payload) {
+    OrderOutboxEventEntity outbox = new OrderOutboxEventEntity();
+    outbox.setId(UUID.randomUUID());
+    outbox.setAggregateId(aggregateId);
+    outbox.setEventType(eventType);
+    outbox.setPayload(serialize(payload));
+    outbox.setPublished(false);
+    outbox.setCreatedAt(OffsetDateTime.now());
+    outboxEventRepository.save(outbox);
+  }
+
+  private String serialize(Object payload) {
+    try {
+      return objectMapper.writeValueAsString(payload);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Failed to serialize order event payload", e);
+    }
   }
 }
