@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: meal-builder-service
+server:
+  port: 8085
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
