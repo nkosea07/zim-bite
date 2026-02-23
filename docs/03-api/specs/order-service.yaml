@@ -1,0 +1,104 @@
+openapi: 3.0.3
+info:
+  title: ZimBite Order Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/orders
+security:
+  - BearerAuth: []
+paths:
+  /:
+    post:
+      summary: Place a new order
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+      responses:
+        '201':
+          description: Order created
+    get:
+      summary: List orders for current user
+      responses:
+        '200':
+          description: Orders
+  /{orderId}:
+    get:
+      summary: Get order by id
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order details
+  /{orderId}/cancel:
+    post:
+      summary: Cancel order if cancellation window still open
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order cancelled
+  /{orderId}/status:
+    get:
+      summary: Fetch current order status and timeline
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Status
+  /corporate:
+    post:
+      summary: Create corporate breakfast batch order
+      responses:
+        '201':
+          description: Corporate order created
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    OrderId:
+      in: path
+      name: orderId
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    PlaceOrderRequest:
+      type: object
+      required: [vendor_id, items, delivery_address_id, payment_method]
+      properties:
+        vendor_id:
+          type: string
+          format: uuid
+        delivery_address_id:
+          type: string
+          format: uuid
+        payment_method:
+          type: string
+          enum: [ECOCASH, ONEMONEY, CARD, CASH]
+        scheduled_for:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            type: object
+            required: [menu_item_id, quantity]
+            properties:
+              menu_item_id:
+                type: string
+                format: uuid
+              quantity:
+                type: integer

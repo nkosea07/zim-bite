@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: ZimBite Delivery Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/deliveries
+security:
+  - BearerAuth: []
+paths:
+  /assign:
+    post:
+      summary: Assign rider to ready order
+      responses:
+        '200':
+          description: Rider assigned
+  /{deliveryId}/status:
+    patch:
+      summary: Update delivery status
+      parameters:
+        - in: path
+          name: deliveryId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Status updated
+  /{deliveryId}/location:
+    post:
+      summary: Publish rider location update
+      parameters:
+        - in: path
+          name: deliveryId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Location accepted
+  /orders/{orderId}/tracking:
+    get:
+      summary: Get current tracking details for order
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tracking payload
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

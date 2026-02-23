@@ -1,0 +1,76 @@
+openapi: 3.0.3
+info:
+  title: ZimBite Vendor Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/vendors
+security: []
+paths:
+  /:
+    get:
+      summary: Discover vendors by location and availability
+      parameters:
+        - in: query
+          name: lat
+          schema:
+            type: number
+        - in: query
+          name: lng
+          schema:
+            type: number
+        - in: query
+          name: radius_km
+          schema:
+            type: number
+            default: 5
+      responses:
+        '200':
+          description: Vendor list
+    post:
+      summary: Create vendor storefront
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Vendor created
+  /{vendorId}:
+    get:
+      summary: Get vendor details
+      parameters:
+        - $ref: '#/components/parameters/VendorId'
+      responses:
+        '200':
+          description: Vendor details
+    patch:
+      summary: Update vendor details
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/VendorId'
+      responses:
+        '200':
+          description: Updated
+  /{vendorId}/stats:
+    get:
+      summary: Vendor dashboard metrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/VendorId'
+      responses:
+        '200':
+          description: Metrics snapshot
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    VendorId:
+      in: path
+      name: vendorId
+      required: true
+      schema:
+        type: string
+        format: uuid
