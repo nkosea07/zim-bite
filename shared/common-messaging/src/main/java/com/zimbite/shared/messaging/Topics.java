@@ -7,6 +7,7 @@ public final class Topics {
   public static final String PAYMENT_SUCCEEDED = "payment.succeeded";
   public static final String PAYMENT_FAILED = "payment.failed";
   public static final String DELIVERY_ASSIGNED = "delivery.assigned";
+  public static final String DELIVERY_COMPLETED = "delivery.completed";
 
   private Topics() {
   }
