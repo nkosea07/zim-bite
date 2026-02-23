@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: ZimBite Meal Builder Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/meal-builder
+security: []
+paths:
+  /calculate:
+    post:
+      summary: Calculate custom meal price and nutrition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealCompositionRequest'
+      responses:
+        '200':
+          description: Computation result
+  /validate:
+    post:
+      summary: Validate ingredient availability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealCompositionRequest'
+      responses:
+        '200':
+          description: Validation result
+  /presets:
+    get:
+      security:
+        - BearerAuth: []
+      summary: List user saved presets
+      responses:
+        '200':
+          description: Presets
+    post:
+      security:
+        - BearerAuth: []
+      summary: Save user preset
+      responses:
+        '201':
+          description: Preset created
+  /recommendations:
+    get:
+      summary: Recommend combinations based on history and time window
+      parameters:
+        - in: query
+          name: vendor_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recommendations
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    MealCompositionRequest:
+      type: object
+      required: [vendor_id, base_item_id, components]
+      properties:
+        vendor_id:
+          type: string
+          format: uuid
+        base_item_id:
+          type: string
+          format: uuid
+        components:
+          type: array
+          items:
+            type: object
+            required: [component_id, quantity]
+            properties:
+              component_id:
+                type: string
+                format: uuid
+              quantity:
+                type: number

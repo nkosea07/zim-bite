@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: ZimBite Menu Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/menu
+security: []
+paths:
+  /vendors/{vendorId}/categories:
+    get:
+      summary: List categories for a vendor
+      parameters:
+        - $ref: '#/components/parameters/VendorId'
+      responses:
+        '200':
+          description: Category list
+  /vendors/{vendorId}/items:
+    get:
+      summary: List menu items for a vendor
+      parameters:
+        - $ref: '#/components/parameters/VendorId'
+        - in: query
+          name: fields
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Items
+    post:
+      summary: Create menu item
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/VendorId'
+      responses:
+        '201':
+          description: Created
+  /items/{itemId}:
+    get:
+      summary: Get menu item details
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: Item detail
+    patch:
+      summary: Update menu item
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: Updated
+  /items/{itemId}/availability:
+    patch:
+      summary: Toggle item availability
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: Availability updated
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    VendorId:
+      in: path
+      name: vendorId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ItemId:
+      in: path
+      name: itemId
+      required: true
+      schema:
+        type: string
+        format: uuid

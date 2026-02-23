@@ -1,0 +1,94 @@
+openapi: 3.0.3
+info:
+  title: ZimBite Payment Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/payments
+security: []
+paths:
+  /initiate:
+    post:
+      summary: Initiate payment for an order
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiatePaymentRequest'
+      responses:
+        '201':
+          description: Payment initiated
+  /callbacks/{provider}:
+    post:
+      summary: Receive external payment provider callback
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+            enum: [ecocash, onemoney, card]
+      responses:
+        '202':
+          description: Callback accepted
+  /refunds/{paymentId}:
+    post:
+      summary: Issue refund for successful payment
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Refund initiated
+  /methods:
+    get:
+      summary: List saved payment methods for current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Methods
+    post:
+      summary: Save payment method token reference
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Method saved
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    InitiatePaymentRequest:
+      type: object
+      required: [order_id, provider, amount, currency]
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [ECOCASH, ONEMONEY, CARD, CASH]
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          enum: [USD, ZWL]

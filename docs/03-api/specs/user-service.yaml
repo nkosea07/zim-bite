@@ -1,0 +1,130 @@
+openapi: 3.0.3
+info:
+  title: ZimBite User Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/users
+security:
+  - BearerAuth: []
+paths:
+  /profile:
+    get:
+      summary: Get current user profile
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+    patch:
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Updated
+  /addresses:
+    get:
+      summary: List saved addresses
+      responses:
+        '200':
+          description: Address list
+    post:
+      summary: Add address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+      responses:
+        '201':
+          description: Created
+  /favorites:
+    get:
+      summary: List favorite menu items
+      responses:
+        '200':
+          description: Favorites
+    post:
+      summary: Add item to favorites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [menu_item_id]
+              properties:
+                menu_item_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Added
+  /order-history:
+    get:
+      summary: List historical orders for current user
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: History
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+    UpdateProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        preferred_language:
+          type: string
+    AddressRequest:
+      type: object
+      required: [label, line1, city]
+      properties:
+        label:
+          type: string
+        line1:
+          type: string
+        line2:
+          type: string
+        city:
+          type: string
+        area:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
