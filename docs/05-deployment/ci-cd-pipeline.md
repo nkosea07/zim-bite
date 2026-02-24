@@ -22,8 +22,14 @@
 ## CD to Production
 
 1. Manual approval gate.
-2. Progressive rollout (canary 10% -> 50% -> 100%).
-3. Auto rollback if SLO or error budget guardrail is breached.
+2. Stage 3 rollout readiness rehearsal and go/no-go report (`scripts/run-stage3-rollout-readiness.sh`).
+3. Progressive rollout (canary 10% -> 50% -> 100%).
+4. Auto rollback if SLO or error budget guardrail is breached.
+
+## Rollout Execution Workflows
+
+- `.github/workflows/stage3-rollout-readiness.yml`
+- `.github/workflows/stage3-canary-drill.yml`
 
 ## Artifact and Release Rules
 

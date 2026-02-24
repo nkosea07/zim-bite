@@ -1,12 +1,16 @@
 package com.zimbite.payment.controller;
 
 import com.zimbite.payment.model.dto.InitiatePaymentRequest;
+import com.zimbite.payment.model.dto.PaymentMethodResponse;
 import com.zimbite.payment.model.dto.PaymentResponse;
 import com.zimbite.payment.model.dto.SavePaymentMethodRequest;
+import com.zimbite.payment.model.dto.SavePaymentMethodResponse;
+import com.zimbite.payment.service.PaymentMethodService;
 import com.zimbite.payment.service.PaymentService;
+import com.zimbite.shared.security.UserContext;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,15 +22,18 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/payments")
 public class PaymentController {
 
   private final PaymentService paymentService;
+  private final PaymentMethodService paymentMethodService;
 
-  public PaymentController(PaymentService paymentService) {
+  public PaymentController(PaymentService paymentService, PaymentMethodService paymentMethodService) {
     this.paymentService = paymentService;
+    this.paymentMethodService = paymentMethodService;
   }
 
   @PostMapping("/initiate")
@@ -72,20 +79,21 @@ public class PaymentController {
   }
 
   @GetMapping("/methods")
-  public ResponseEntity<List<Map<String, String>>> listMethods() {
-    return ResponseEntity.ok(List.of(
-        Map.of("paymentMethodId", "pm-ecocash-default", "provider", "ECOCASH", "last4", "0001"),
-        Map.of("paymentMethodId", "pm-card-default", "provider", "CARD", "last4", "4242")
-    ));
+  public ResponseEntity<List<PaymentMethodResponse>> listMethods(HttpServletRequest request) {
+    return ResponseEntity.ok(paymentMethodService.listMethods(currentUserId(request)));
   }
 
   @PostMapping("/methods")
-  public ResponseEntity<Map<String, String>> saveMethod(@Valid @RequestBody SavePaymentMethodRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-        "paymentMethodId", UUID.randomUUID().toString(),
-        "provider", request.provider(),
-        "last4", request.last4(),
-        "status", "saved"
-    ));
+  public ResponseEntity<SavePaymentMethodResponse> saveMethod(
+      HttpServletRequest servletRequest,
+      @Valid @RequestBody SavePaymentMethodRequest request
+  ) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(paymentMethodService.saveMethod(currentUserId(servletRequest), request));
+  }
+
+  private UUID currentUserId(HttpServletRequest request) {
+    return UserContext.getUserId(request)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing user context"));
   }
 }

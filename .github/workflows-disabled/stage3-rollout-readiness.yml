@@ -1,0 +1,81 @@
+name: Stage 3 Rollout Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Gateway or environment base URL (for example https://staging-api.zimbite.com)"
+        required: false
+        type: string
+      checkout_rate:
+        description: "Checkout requests per second target"
+        required: false
+        default: "1"
+        type: string
+      tracking_rate:
+        description: "Tracking requests per second target"
+        required: false
+        default: "2"
+        type: string
+      duration:
+        description: "Duration for each load scenario (for example 2m)"
+        required: false
+        default: "2m"
+        type: string
+      run_security_scans:
+        description: "Run secret scan and dependency audit"
+        required: false
+        default: true
+        type: boolean
+      require_load_baseline:
+        description: "Fail if load baseline cannot run"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Stage 3 readiness rehearsal
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          AUTH_TOKEN: ${{ secrets.LOAD_TEST_AUTH_TOKEN }}
+          CHECKOUT_DURATION: ${{ inputs.duration }}
+          TRACKING_DURATION: ${{ inputs.duration }}
+          CHECKOUT_RATE: ${{ inputs.checkout_rate }}
+          TRACKING_RATE: ${{ inputs.tracking_rate }}
+          CHECKOUT_P95_MS: "800"
+          TRACKING_P95_MS: "500"
+          CHECKOUT_MIN_RPS: "0.8"
+          TRACKING_MIN_RPS: "1.5"
+          RUN_SECURITY_SCANS: ${{ inputs.run_security_scans }}
+          REQUIRE_LOAD_BASELINE: ${{ inputs.require_load_baseline }}
+          TRIVY_EXIT_CODE: "0"
+        run: ./scripts/run-stage3-rollout-readiness.sh
+
+      - name: Upload readiness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-rollout-readiness-report
+          path: artifacts/stage3-rollout-readiness.md
+          if-no-files-found: error
+
+      - name: Upload readiness logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-rollout-readiness-logs
+          path: artifacts/stage3-readiness-logs
+          if-no-files-found: error

@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { AccountPage } from '../pages/account/AccountPage';
+import { LoginPage } from '../pages/auth/LoginPage';
 import { CartPage } from '../pages/cart/CartPage';
 import { CheckoutPage } from '../pages/checkout/CheckoutPage';
 import { HomePage } from '../pages/home/HomePage';
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       { path: 'meal-builder', element: <MealBuilderPage /> },
       { path: 'cart', element: <CartPage /> },
       { path: 'checkout', element: <CheckoutPage /> },
+      { path: 'auth/login', element: <LoginPage /> },
       { path: 'account', element: <AccountPage /> }
     ]
   }

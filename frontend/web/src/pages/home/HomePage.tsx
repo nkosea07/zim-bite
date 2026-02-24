@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../app/store/authStore';
 
 export function HomePage() {
-  const { userId, setSession, clearSession } = useAuthStore();
+  const { userId, clearSession } = useAuthStore();
 
   return (
     <section className="hero">
@@ -18,18 +18,7 @@ export function HomePage() {
       <div className="panel">
         <p><strong>Session:</strong> {userId ?? 'not signed in'}</p>
         <div className="hero-actions">
-          <button
-            className="btn-secondary"
-            onClick={() =>
-              setSession({
-                userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
-                token: 'dev-token-placeholder',
-                role: 'CUSTOMER'
-              })
-            }
-          >
-            Use Demo Session
-          </button>
+          <Link to="/auth/login" className="btn-secondary">Sign In</Link>
           <button className="btn-secondary" onClick={clearSession}>Clear Session</button>
         </div>
       </div>

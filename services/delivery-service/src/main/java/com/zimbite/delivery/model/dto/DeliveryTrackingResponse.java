@@ -11,6 +11,7 @@ public record DeliveryTrackingResponse(
     String status,
     BigDecimal lastLatitude,
     BigDecimal lastLongitude,
-    OffsetDateTime lastUpdatedAt
+    OffsetDateTime lastUpdatedAt,
+    OffsetDateTime estimatedArrivalAt
 ) {
 }

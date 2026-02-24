@@ -10,6 +10,7 @@ export function AppShell() {
           <NavLink to="/meal-builder">Meal Builder</NavLink>
           <NavLink to="/cart">Cart</NavLink>
           <NavLink to="/checkout">Checkout</NavLink>
+          <NavLink to="/auth/login">Sign In</NavLink>
           <NavLink to="/account">Account</NavLink>
         </nav>
       </header>

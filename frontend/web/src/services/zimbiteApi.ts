@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { parseJwtClaims } from './jwt';
 
 export type Vendor = {
   id: string;
@@ -47,7 +48,34 @@ export type PaymentResponse = {
   currency: 'USD' | 'ZWL';
 };
 
+export type AuthSession = {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  userId: string;
+  role: string;
+};
+
 export const zimbiteApi = {
+  login: async (payload: { principal: string; password: string }) => {
+    const tokens = await apiRequest<{ accessToken: string; refreshToken: string; expiresIn: number }>(
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const claims = parseJwtClaims(tokens.accessToken);
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      userId: typeof claims?.sub === 'string' ? claims.sub : payload.principal,
+      role: typeof claims?.role === 'string' ? claims.role : 'CUSTOMER'
+    } satisfies AuthSession;
+  },
+
   listVendors: () =>
     apiRequest<Vendor[]>('/vendors', { method: 'GET' }, () => [
       {

@@ -70,6 +70,7 @@ On-demand breakfast delivery platform for Zimbabwe. Hot breakfast delivered betw
 - [Operations Alerting Provisioning](docs/05-deployment/operations-alerting-provisioning.md)
 - [Service Rollback and Incident Runbook](docs/05-deployment/service-rollback-and-incident-runbook.md)
 - [Stage 3 Rollout Readiness](docs/05-deployment/stage-3-rollout-readiness.md)
+- [Stage 3 Canary Drill](docs/05-deployment/stage-3-canary-drill.md)
 - [Stage 3 Execution Plan](docs/05-deployment/stage-3-execution-plan.md)
 - [Implementation TODO Tracker](docs/implementation-todo.md)
 

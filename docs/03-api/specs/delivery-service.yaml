@@ -69,6 +69,34 @@ paths:
       responses:
         '200':
           description: Tracking payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    format: uuid
+                  deliveryId:
+                    type: string
+                    format: uuid
+                  riderId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  lastLatitude:
+                    type: number
+                    format: double
+                  lastLongitude:
+                    type: number
+                    format: double
+                  lastUpdatedAt:
+                    type: string
+                    format: date-time
+                  estimatedArrivalAt:
+                    type: string
+                    format: date-time
 components:
   securitySchemes:
     BearerAuth:

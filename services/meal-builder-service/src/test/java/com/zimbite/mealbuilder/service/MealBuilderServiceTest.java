@@ -1,10 +1,12 @@
 package com.zimbite.mealbuilder.service;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zimbite.mealbuilder.model.dto.MealComponentRequest;
 import com.zimbite.mealbuilder.model.dto.MealCompositionRequest;
+import com.zimbite.mealbuilder.model.dto.SaveMealPresetRequest;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -34,5 +36,24 @@ class MealBuilderServiceTest {
     );
 
     assertTrue(service.calculate(request).totalPrice().compareTo(BigDecimal.ZERO) > 0);
+  }
+
+  @Test
+  void recommendationsUseSavedPresetsInsteadOfHardcodedCatalog() {
+    MealBuilderService service = new MealBuilderService();
+    UUID userId = UUID.randomUUID();
+    UUID vendorId = UUID.randomUUID();
+
+    service.savePreset(userId, new SaveMealPresetRequest(
+        "My custom omelette",
+        vendorId,
+        UUID.randomUUID(),
+        List.of(new MealComponentRequest(UUID.randomUUID(), new BigDecimal("2")))
+    ));
+
+    var recommendations = service.recommendations(vendorId);
+    assertFalse(recommendations.isEmpty());
+    assertTrue(recommendations.getFirst().name().contains("custom"));
+    assertNotEquals(BigDecimal.ZERO, recommendations.getFirst().estimatedPrice());
   }
 }

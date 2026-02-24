@@ -36,6 +36,8 @@ Move ZimBite from feature-complete implementation to production-ready operation 
 - Publish service runbooks including startup checks, rollback, and recovery steps.
 - Configure dashboards and alerts for latency, Kafka lag, and outbox backlog.
 - Execute a staged production rollout with defined go/no-go criteria.
+- Run `scripts/run-stage3-rollout-readiness.sh` and archive the generated readiness report before rollout approval.
+- Run `scripts/run-stage3-canary-drill.sh` for `10% -> 50% -> 100%` progression and archive canary SLO report.
 
 ## Exit Criteria
 

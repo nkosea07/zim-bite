@@ -1,30 +1,27 @@
 package com.zimbite.delivery.consumer;
 
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zimbite.shared.messaging.Topics;
+import com.zimbite.delivery.service.DeliveryService;
 import com.zimbite.shared.messaging.contract.PaymentSucceededEvent;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentEventConsumerTest {
 
   @Mock
-  private KafkaTemplate<String, String> kafkaTemplate;
+  private DeliveryService deliveryService;
 
   private ObjectMapper objectMapper;
   private PaymentEventConsumer consumer;
@@ -32,11 +29,11 @@ class PaymentEventConsumerTest {
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper().findAndRegisterModules();
-    consumer = new PaymentEventConsumer(objectMapper, kafkaTemplate);
+    consumer = new PaymentEventConsumer(objectMapper, deliveryService);
   }
 
   @Test
-  void ignoresReplayOfPaymentSucceededForSameOrder() throws Exception {
+  void forwardsPaymentSucceededToDeliveryService() throws Exception {
     UUID orderId = UUID.randomUUID();
     PaymentSucceededEvent event = new PaymentSucceededEvent(
         UUID.randomUUID(),
@@ -48,13 +45,15 @@ class PaymentEventConsumerTest {
     );
 
     String payload = objectMapper.writeValueAsString(event);
-    when(kafkaTemplate.send(anyString(), anyString(), anyString()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
-    consumer.onPaymentSucceeded(payload);
     consumer.onPaymentSucceeded(payload);
 
-    verify(kafkaTemplate, times(1))
-        .send(eq(Topics.DELIVERY_ASSIGNED), eq(orderId.toString()), anyString());
+    verify(deliveryService, times(1)).assignDelivery(orderId);
+  }
+
+  @Test
+  void ignoresInvalidPayload() {
+    consumer.onPaymentSucceeded("{invalid-json");
+
+    verify(deliveryService, never()).assignDelivery(any(UUID.class));
   }
 }

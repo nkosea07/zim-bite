@@ -1,0 +1,66 @@
+name: Stage 3 Canary Drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Gateway or environment base URL (for example https://staging-api.zimbite.com)"
+        required: true
+        type: string
+      phases:
+        description: "Canary phases (comma-separated percentages)"
+        required: false
+        default: "10,50,100"
+        type: string
+      full_checkout_rate:
+        description: "Checkout RPS at 100% traffic"
+        required: false
+        default: "10"
+        type: string
+      full_tracking_rate:
+        description: "Tracking RPS at 100% traffic"
+        required: false
+        default: "20"
+        type: string
+      phase_duration:
+        description: "Duration per phase (for example 2m)"
+        required: false
+        default: "2m"
+        type: string
+
+jobs:
+  canary-drill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Run canary drill
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          AUTH_TOKEN: ${{ secrets.LOAD_TEST_AUTH_TOKEN }}
+          CANARY_PHASES: ${{ inputs.phases }}
+          FULL_CHECKOUT_RATE: ${{ inputs.full_checkout_rate }}
+          FULL_TRACKING_RATE: ${{ inputs.full_tracking_rate }}
+          PHASE_DURATION: ${{ inputs.phase_duration }}
+          CHECKOUT_P95_MS: "800"
+          TRACKING_P95_MS: "500"
+          CHECKOUT_MIN_RPS: "0.8"
+          TRACKING_MIN_RPS: "1.5"
+        run: ./scripts/run-stage3-canary-drill.sh
+
+      - name: Upload canary report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-canary-drill-report
+          path: artifacts/canary/stage3-canary-drill.md
+          if-no-files-found: error
+
+      - name: Upload canary logs and summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-canary-drill-artifacts
+          path: artifacts/canary
+          if-no-files-found: error

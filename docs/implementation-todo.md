@@ -56,3 +56,10 @@ Last updated: 2026-02-24
 - [x] Complete security hardening checklist (secret scanning, dependency audit, JWT key rotation rehearsal).
 - [x] Provision production dashboards and alerts for Kafka lag, outbox backlog age, API latency, and DB saturation.
 - [x] Add deployment runbook with rollback drills and incident response playbook for each critical service.
+
+## 8) Stage 3 Rollout Execution
+
+- [x] Add go/no-go readiness rehearsal runner with report artifact output.
+- [x] Add automated canary drill runner (`10% -> 50% -> 100%`) with SLO evidence artifacts.
+- [ ] Execute readiness rehearsal in staging and attach report evidence.
+- [ ] Execute canary rollout drill (`10% -> 50% -> 100%`) and capture live SLO observations.

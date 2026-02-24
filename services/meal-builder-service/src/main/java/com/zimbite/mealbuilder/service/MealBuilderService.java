@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -64,11 +65,13 @@ public class MealBuilderService {
   }
 
   public List<MealRecommendationResponse> recommendations(UUID vendorId) {
-    return List.of(
-        new MealRecommendationResponse(UUID.randomUUID(), "Quick Protein Bowl", BigDecimal.valueOf(7.80), 540),
-        new MealRecommendationResponse(UUID.randomUUID(), "Light Veggie Combo", BigDecimal.valueOf(6.40), 390),
-        new MealRecommendationResponse(UUID.randomUUID(), "Classic Sunrise Plate", BigDecimal.valueOf(8.20), 610)
-    );
+    return presetsByUser.values().stream()
+        .flatMap(List::stream)
+        .filter(preset -> vendorId == null || vendorId.equals(preset.vendorId()))
+        .sorted(Comparator.comparing(MealPresetResponse::createdAt).reversed())
+        .limit(3)
+        .map(this::toRecommendation)
+        .toList();
   }
 
   private List<UUID> unavailableComponents(MealCompositionRequest request) {
@@ -79,5 +82,23 @@ public class MealBuilderService {
       }
     });
     return unavailable;
+  }
+
+  private MealRecommendationResponse toRecommendation(MealPresetResponse preset) {
+    BigDecimal componentTotal = preset.components().stream()
+        .map(component -> COMPONENT_UNIT_PRICE.multiply(component.quantity()))
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+    BigDecimal totalPrice = BASE_PRICE.add(componentTotal).setScale(2, RoundingMode.HALF_UP);
+
+    int calories = 250 + preset.components().stream()
+        .mapToInt(component -> component.quantity().multiply(BigDecimal.valueOf(85)).intValue())
+        .sum();
+
+    return new MealRecommendationResponse(
+        preset.presetId(),
+        preset.name(),
+        totalPrice,
+        calories
+    );
   }
 }
