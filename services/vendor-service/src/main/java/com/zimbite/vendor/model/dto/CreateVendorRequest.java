@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record CreateVendorRequest(
-    @NotNull UUID ownerUserId,
+    UUID ownerUserId,
     @NotBlank String name,
     @NotBlank String phoneNumber,
     String supportEmail,

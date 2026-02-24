@@ -1,6 +1,7 @@
 package com.zimbite.auth.service;
 
 import com.zimbite.auth.model.dto.AuthTokensResponse;
+import com.zimbite.auth.model.dto.LoginChallengeResponse;
 import com.zimbite.auth.model.dto.LoginRequest;
 import com.zimbite.auth.model.dto.RegisterRequest;
 import com.zimbite.auth.model.entity.AuthUserEntity;
@@ -88,17 +89,22 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthTokensResponse login(LoginRequest request) {
-        AuthUserEntity user = userRepository.findByEmail(request.principal())
-                .or(() -> userRepository.findByPhoneNumber(request.principal()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+    public LoginChallengeResponse login(LoginRequest request) {
+        String normalizedPrincipal = normalizePrincipal(request.principal());
+        AuthUserEntity user = findUserByPrincipal(normalizedPrincipal);
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        createOtpChallenge(request.principal());
-        return issueTokens(user);
+        OtpChallengeEntity challenge = createOtpChallenge(normalizedPrincipal);
+        return new LoginChallengeResponse(
+            challenge.getId(),
+            challenge.getPrincipal(),
+            challenge.getExpiresAt(),
+            challenge.getAttemptsRemaining(),
+            "OTP_REQUIRED"
+        );
     }
 
     @Transactional
@@ -128,7 +134,8 @@ public class AuthService {
         return issueTokens(user);
     }
 
-    public void verifyOtp(String principal, String otp) {
+    @Transactional
+    public AuthTokensResponse verifyOtp(String principal, String otp) {
         String normalizedPrincipal = normalizePrincipal(principal);
         OtpChallengeEntity challenge = otpChallengeRepository.findFirstByPrincipalOrderByCreatedAtDesc(normalizedPrincipal)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "OTP challenge not found"));
@@ -153,6 +160,7 @@ public class AuthService {
 
         challenge.setConsumedAt(now);
         otpChallengeRepository.save(challenge);
+        return issueTokens(findUserByPrincipal(normalizedPrincipal));
     }
 
     private AuthTokensResponse issueTokens(AuthUserEntity user) {
@@ -182,7 +190,7 @@ public class AuthService {
         }
     }
 
-    private void createOtpChallenge(String principal) {
+    private OtpChallengeEntity createOtpChallenge(String principal) {
         String normalizedPrincipal = normalizePrincipal(principal);
         OffsetDateTime now = OffsetDateTime.now();
         String otpValue = generateOtp();
@@ -194,10 +202,11 @@ public class AuthService {
         challenge.setExpiresAt(now.plusSeconds(otpTtlSeconds));
         challenge.setAttemptsRemaining(Math.max(otpMaxAttempts, 1));
         challenge.setCreatedAt(now);
-        otpChallengeRepository.save(challenge);
+        OtpChallengeEntity saved = otpChallengeRepository.save(challenge);
 
         log.info("OTP challenge issued for principal={}, expiresAt={}, devOtp={}",
             normalizedPrincipal, challenge.getExpiresAt(), otpValue);
+        return saved;
     }
 
     private String generateOtp() {
@@ -217,6 +226,12 @@ public class AuthService {
             return trimmed.toLowerCase();
         }
         return trimmed;
+    }
+
+    private AuthUserEntity findUserByPrincipal(String normalizedPrincipal) {
+        return userRepository.findByEmail(normalizedPrincipal)
+            .or(() -> userRepository.findByPhoneNumber(normalizedPrincipal))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
     }
 
     private boolean constantTimeEquals(String left, String right) {

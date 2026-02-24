@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record PlaceOrderRequest(
-    @NotNull UUID userId,
+    UUID userId,
     @NotNull UUID vendorId,
     @NotBlank String currency,
     @NotEmpty List<OrderItemRequest> items

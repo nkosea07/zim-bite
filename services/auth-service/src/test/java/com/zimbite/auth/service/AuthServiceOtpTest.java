@@ -5,7 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.zimbite.auth.model.dto.LoginChallengeResponse;
+import com.zimbite.auth.model.dto.LoginRequest;
+import com.zimbite.auth.model.entity.AuthUserEntity;
 import com.zimbite.auth.model.entity.OtpChallengeEntity;
+import com.zimbite.auth.model.entity.RefreshTokenEntity;
 import com.zimbite.auth.repository.AuthUserRepository;
 import com.zimbite.auth.repository.OtpChallengeRepository;
 import com.zimbite.auth.repository.RefreshTokenRepository;
@@ -60,6 +64,8 @@ class AuthServiceOtpTest {
 
   @Test
   void verifyOtpConsumesValidChallenge() {
+    AuthUserEntity user = authUser("user@example.com", "+263771000001");
+
     OtpChallengeEntity challenge = new OtpChallengeEntity();
     challenge.setId(UUID.randomUUID());
     challenge.setPrincipal("user@example.com");
@@ -72,10 +78,15 @@ class AuthServiceOtpTest {
         .thenReturn(Optional.of(challenge));
     when(otpChallengeRepository.save(any(OtpChallengeEntity.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
+    when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+    when(refreshTokenRepository.save(any(RefreshTokenEntity.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
-    authService.verifyOtp("User@Example.com", "123456");
+    var tokens = authService.verifyOtp("User@Example.com", "123456");
 
     assertNotNull(challenge.getConsumedAt());
+    assertNotNull(tokens.accessToken());
+    assertNotNull(tokens.refreshToken());
   }
 
   @Test
@@ -94,6 +105,36 @@ class AuthServiceOtpTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     assertThrows(ResponseStatusException.class, () -> authService.verifyOtp("user@example.com", "000000"));
+  }
+
+  @Test
+  void loginReturnsChallengeAndDoesNotIssueTokensUntilOtp() {
+    AuthUserEntity user = authUser("user@example.com", "+263771000002");
+    user.setPasswordHash(new BCryptPasswordEncoder().encode("password123"));
+    when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+    when(otpChallengeRepository.save(any(OtpChallengeEntity.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    LoginChallengeResponse response = authService.login(new LoginRequest("user@example.com", "password123"));
+
+    assertNotNull(response.challengeId());
+    assertNotNull(response.expiresAt());
+    assertNotNull(response.status());
+  }
+
+  private AuthUserEntity authUser(String email, String phoneNumber) {
+    AuthUserEntity user = new AuthUserEntity();
+    user.setId(UUID.randomUUID());
+    user.setEmail(email);
+    user.setPhoneNumber(phoneNumber);
+    user.setPasswordHash(new BCryptPasswordEncoder().encode("password123"));
+    user.setFirstName("Test");
+    user.setLastName("User");
+    user.setRole("CUSTOMER");
+    user.setStatus("ACTIVE");
+    user.setCreatedAt(OffsetDateTime.now());
+    user.setUpdatedAt(OffsetDateTime.now());
+    return user;
   }
 
   private String sha256(String input) {

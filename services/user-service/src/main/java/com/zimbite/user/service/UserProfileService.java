@@ -19,7 +19,9 @@ import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class UserProfileService {
@@ -43,13 +45,13 @@ public class UserProfileService {
 
   @Transactional
   public UserProfileResponse getCurrentProfile(UUID userId) {
-    UserEntity user = getOrCreateUser(userId);
+    UserEntity user = getRequiredUser(userId);
     return toResponse(user);
   }
 
   @Transactional
   public UserProfileResponse updateCurrentProfile(UUID userId, UpdateProfileRequest request) {
-    UserEntity user = getOrCreateUser(userId);
+    UserEntity user = getRequiredUser(userId);
     user.setFirstName(request.firstName());
     user.setLastName(request.lastName());
     user.setUpdatedAt(OffsetDateTime.now());
@@ -58,7 +60,7 @@ public class UserProfileService {
 
   @Transactional
   public List<AddressResponse> listAddresses(UUID userId) {
-    getOrCreateUser(userId);
+    getRequiredUser(userId);
     return userAddressRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
         .map(this::toAddressResponse)
         .toList();
@@ -66,7 +68,7 @@ public class UserProfileService {
 
   @Transactional
   public AddressResponse addAddress(UUID userId, AddressRequest request) {
-    getOrCreateUser(userId);
+    getRequiredUser(userId);
 
     UserAddressEntity address = new UserAddressEntity();
     address.setId(UUID.randomUUID());
@@ -84,7 +86,7 @@ public class UserProfileService {
 
   @Transactional
   public List<FavoriteItemResponse> listFavorites(UUID userId) {
-    getOrCreateUser(userId);
+    getRequiredUser(userId);
     return userFavoriteItemRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
         .map(favorite -> new FavoriteItemResponse(favorite.getMenuItemId(), favorite.getCreatedAt()))
         .toList();
@@ -92,7 +94,7 @@ public class UserProfileService {
 
   @Transactional
   public FavoriteItemResponse addFavorite(UUID userId, FavoriteItemRequest request) {
-    getOrCreateUser(userId);
+    getRequiredUser(userId);
 
     UserFavoriteItemEntity existing = userFavoriteItemRepository
         .findByUserIdAndMenuItemId(userId, request.menuItemId())
@@ -112,7 +114,7 @@ public class UserProfileService {
 
   @Transactional
   public List<OrderHistoryItemResponse> listOrderHistory(UUID userId, int limit) {
-    getOrCreateUser(userId);
+    getRequiredUser(userId);
     int safeLimit = Math.max(limit, 1);
     return userOrderHistoryRepository.findByUserIdOrderByPlacedAtDesc(userId).stream()
         .limit(safeLimit)
@@ -120,18 +122,9 @@ public class UserProfileService {
         .toList();
   }
 
-  private UserEntity getOrCreateUser(UUID userId) {
-    return userRepository.findById(userId).orElseGet(() -> {
-      UserEntity user = new UserEntity();
-      user.setId(userId);
-      user.setFirstName("New");
-      user.setLastName("User");
-      user.setEmail("user-" + userId + "@zimbite.local");
-      user.setPhoneNumber("user-" + userId.toString().substring(0, 12));
-      user.setCreatedAt(OffsetDateTime.now());
-      user.setUpdatedAt(OffsetDateTime.now());
-      return userRepository.save(user);
-    });
+  private UserEntity getRequiredUser(UUID userId) {
+    return userRepository.findById(userId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"));
   }
 
   private static UserProfileResponse toResponse(UserEntity user) {

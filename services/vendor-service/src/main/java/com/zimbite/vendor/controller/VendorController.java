@@ -5,6 +5,8 @@ import com.zimbite.vendor.model.dto.UpdateVendorRequest;
 import com.zimbite.vendor.model.dto.VendorResponse;
 import com.zimbite.vendor.model.dto.VendorStatsResponse;
 import com.zimbite.vendor.service.VendorService;
+import com.zimbite.shared.security.UserContext;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/vendors")
@@ -38,8 +41,20 @@ public class VendorController {
     }
 
     @PostMapping
-    public ResponseEntity<VendorResponse> createVendor(@Valid @RequestBody CreateVendorRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.create(request));
+    public ResponseEntity<VendorResponse> createVendor(
+            HttpServletRequest servletRequest,
+            @Valid @RequestBody CreateVendorRequest request
+    ) {
+        CreateVendorRequest sanitized = new CreateVendorRequest(
+                currentUserId(servletRequest),
+                request.name(),
+                request.phoneNumber(),
+                request.supportEmail(),
+                request.description(),
+                request.latitude(),
+                request.longitude()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.create(sanitized));
     }
 
     @GetMapping("/{vendorId}")
@@ -56,5 +71,10 @@ public class VendorController {
     @GetMapping("/{vendorId}/stats")
     public ResponseEntity<VendorStatsResponse> stats(@PathVariable UUID vendorId) {
         return ResponseEntity.ok(vendorService.stats(vendorId));
+    }
+
+    private UUID currentUserId(HttpServletRequest request) {
+        return UserContext.getUserId(request)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing user context"));
     }
 }

@@ -1,6 +1,7 @@
 package com.zimbite.user.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
 class UserProfileServiceTest {
@@ -76,5 +78,13 @@ class UserProfileServiceTest {
 
     assertEquals(menuItemId, response.menuItemId());
     verify(userFavoriteItemRepository, never()).save(org.mockito.ArgumentMatchers.any(UserFavoriteItemEntity.class));
+  }
+
+  @Test
+  void getCurrentProfileFailsWhenUserIsMissing() {
+    UUID userId = UUID.randomUUID();
+    when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+    assertThrows(ResponseStatusException.class, () -> service.getCurrentProfile(userId));
   }
 }

@@ -20,7 +20,7 @@ paths:
           description: Account created
   /login:
     post:
-      summary: Authenticate user and issue tokens
+      summary: Authenticate credentials and issue OTP challenge
       requestBody:
         required: true
         content:
@@ -28,12 +28,12 @@ paths:
             schema:
               $ref: '#/components/schemas/LoginRequest'
       responses:
-        '200':
-          description: Login success
+        '202':
+          description: OTP challenge issued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
+                $ref: '#/components/schemas/LoginChallenge'
   /refresh:
     post:
       summary: Refresh access token
@@ -71,7 +71,11 @@ paths:
                   type: string
       responses:
         '200':
-          description: OTP verified
+          description: OTP verified and tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
 components:
   schemas:
     RegisterRequest:
@@ -107,3 +111,18 @@ components:
           type: string
         expires_in:
           type: integer
+    LoginChallenge:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        principal:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        attempts_remaining:
+          type: integer
+        status:
+          type: string

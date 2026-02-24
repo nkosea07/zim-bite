@@ -1,6 +1,7 @@
 package com.zimbite.auth.controller;
 
 import com.zimbite.auth.model.dto.AuthTokensResponse;
+import com.zimbite.auth.model.dto.LoginChallengeResponse;
 import com.zimbite.auth.model.dto.LoginRequest;
 import com.zimbite.auth.model.dto.OtpVerifyRequest;
 import com.zimbite.auth.model.dto.RegisterRequest;
@@ -32,8 +33,8 @@ public class AuthController {
   }
 
   @PostMapping("/login")
-  public ResponseEntity<AuthTokensResponse> login(@Valid @RequestBody LoginRequest request) {
-    return ResponseEntity.ok(authService.login(request));
+  public ResponseEntity<LoginChallengeResponse> login(@Valid @RequestBody LoginRequest request) {
+    return ResponseEntity.status(HttpStatus.ACCEPTED).body(authService.login(request));
   }
 
   @PostMapping("/refresh")
@@ -42,8 +43,7 @@ public class AuthController {
   }
 
   @PostMapping("/verify-otp")
-  public ResponseEntity<Map<String, String>> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
-    authService.verifyOtp(request.principal(), request.otp());
-    return ResponseEntity.ok(Map.of("status", "verified"));
+  public ResponseEntity<AuthTokensResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
+    return ResponseEntity.ok(authService.verifyOtp(request.principal(), request.otp()));
   }
 }
