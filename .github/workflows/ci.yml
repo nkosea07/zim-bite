@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  backend-build:
+  backend-compile:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,5 +14,64 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build backend modules
+      - name: Compile backend modules
         run: mvn -B -DskipTests clean install
+
+  backend-test:
+    runs-on: ubuntu-latest
+    needs: backend-compile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Run backend tests
+        run: mvn -B test
+
+  core-flow-smoke:
+    runs-on: ubuntu-latest
+    needs: backend-compile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Run core-flow smoke tests
+        run: ./scripts/run-core-flow-smoke.sh
+
+  openapi-drift:
+    runs-on: ubuntu-latest
+    needs: backend-compile
+    steps:
+      - uses: actions/checkout@v4
+      - name: OpenAPI Drift Check
+        run: ./scripts/check-openapi-drift.sh
+
+  gateway-contract:
+    runs-on: ubuntu-latest
+    needs: backend-compile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gateway Route Contract Check
+        run: ./scripts/check-gateway-contract.sh
+      - name: Upload gateway contract report
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-contract-report
+          path: artifacts/gateway-contract-report.md
+          if-no-files-found: error
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    needs: backend-compile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install frontend dependencies
+        run: npm --prefix frontend/web install
+      - name: Build frontend
+        run: npm --prefix frontend/web run build

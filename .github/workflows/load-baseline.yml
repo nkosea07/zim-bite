@@ -1,0 +1,52 @@
+name: Load Baseline
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Gateway or environment base URL (for example https://staging-api.zimbite.com)"
+        required: true
+        type: string
+      checkout_rate:
+        description: "Checkout requests per second target"
+        required: false
+        default: "1"
+        type: string
+      tracking_rate:
+        description: "Tracking requests per second target"
+        required: false
+        default: "2"
+        type: string
+      duration:
+        description: "Duration for each scenario (for example 2m)"
+        required: false
+        default: "2m"
+        type: string
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Run load baseline suite
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          AUTH_TOKEN: ${{ secrets.LOAD_TEST_AUTH_TOKEN }}
+          CHECKOUT_DURATION: ${{ inputs.duration }}
+          TRACKING_DURATION: ${{ inputs.duration }}
+          CHECKOUT_RATE: ${{ inputs.checkout_rate }}
+          TRACKING_RATE: ${{ inputs.tracking_rate }}
+          CHECKOUT_P95_MS: "800"
+          TRACKING_P95_MS: "500"
+          CHECKOUT_MIN_RPS: "0.8"
+          TRACKING_MIN_RPS: "1.5"
+        run: ./scripts/run-load-baseline.sh
+
+      - name: Upload load baseline artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-baseline-summary
+          path: artifacts/load-baseline-summary.json
+          if-no-files-found: error

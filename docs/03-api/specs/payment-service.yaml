@@ -26,9 +26,9 @@ paths:
       responses:
         '201':
           description: Payment initiated
-  /callbacks/{provider}:
+  /callbacks/{provider}/{paymentId}/success:
     post:
-      summary: Receive external payment provider callback
+      summary: Receive provider success callback and mark payment successful
       parameters:
         - in: path
           name: provider
@@ -36,9 +36,39 @@ paths:
           schema:
             type: string
             enum: [ecocash, onemoney, card]
+        - in: path
+          name: paymentId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
-        '202':
-          description: Callback accepted
+        '200':
+          description: Payment marked successful
+  /callbacks/{provider}/{paymentId}/failure:
+    post:
+      summary: Receive provider failure callback and mark payment failed
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+            enum: [ecocash, onemoney, card]
+        - in: path
+          name: paymentId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: reason
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment marked failed
   /refunds/{paymentId}:
     post:
       summary: Issue refund for successful payment

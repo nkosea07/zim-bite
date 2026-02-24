@@ -7,6 +7,7 @@ public record MenuItemResponse(
     UUID id,
     UUID vendorId,
     String name,
+    String category,
     BigDecimal basePrice,
     String currency,
     boolean available

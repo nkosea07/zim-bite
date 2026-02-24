@@ -2,11 +2,14 @@ package com.zimbite.order.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zimbite.order.model.entity.OrderEntity;
 import com.zimbite.order.model.entity.OrderOutboxEventEntity;
+import com.zimbite.order.model.entity.OrderStatusHistoryEntity;
 import com.zimbite.order.repository.OrderOutboxEventRepository;
 import com.zimbite.order.repository.OrderRepository;
+import com.zimbite.order.repository.OrderStatusHistoryRepository;
 import com.zimbite.shared.messaging.Topics;
+import com.zimbite.shared.messaging.contract.DeliveryAssignedEvent;
+import com.zimbite.shared.messaging.contract.DeliveryCompletedEvent;
 import com.zimbite.shared.messaging.contract.OrderStatusChangedEvent;
 import com.zimbite.shared.messaging.contract.PaymentFailedEvent;
 import com.zimbite.shared.messaging.contract.PaymentSucceededEvent;
@@ -25,13 +28,16 @@ public class PaymentEventConsumer {
 
     private final OrderRepository orderRepository;
     private final OrderOutboxEventRepository outboxEventRepository;
+    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final ObjectMapper objectMapper;
 
     public PaymentEventConsumer(OrderRepository orderRepository,
                                 OrderOutboxEventRepository outboxEventRepository,
+                                OrderStatusHistoryRepository orderStatusHistoryRepository,
                                 ObjectMapper objectMapper) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;
+        this.orderStatusHistoryRepository = orderStatusHistoryRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -41,7 +47,7 @@ public class PaymentEventConsumer {
         try {
             PaymentSucceededEvent event = objectMapper.readValue(payload, PaymentSucceededEvent.class);
             log.info("Received payment.succeeded: orderId={}", event.orderId());
-            updateOrderStatus(event.orderId(), "CONFIRMED");
+            updateOrderStatus(event.orderId(), "PAID");
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize payment.succeeded event", e);
         }
@@ -63,7 +69,7 @@ public class PaymentEventConsumer {
     @Transactional
     public void onDeliveryAssigned(String payload) {
         try {
-            var event = objectMapper.readValue(payload, com.zimbite.shared.messaging.contract.DeliveryAssignedEvent.class);
+            DeliveryAssignedEvent event = objectMapper.readValue(payload, DeliveryAssignedEvent.class);
             log.info("Received delivery.assigned: orderId={}, riderId={}", event.orderId(), event.riderId());
             updateOrderStatus(event.orderId(), "OUT_FOR_DELIVERY");
         } catch (JsonProcessingException e) {
@@ -71,15 +77,33 @@ public class PaymentEventConsumer {
         }
     }
 
+    @KafkaListener(topics = Topics.DELIVERY_COMPLETED, groupId = "order-service")
+    @Transactional
+    public void onDeliveryCompleted(String payload) {
+        try {
+            DeliveryCompletedEvent event = objectMapper.readValue(payload, DeliveryCompletedEvent.class);
+            log.info("Received delivery.completed: orderId={}, deliveryId={}", event.orderId(), event.deliveryId());
+            updateOrderStatus(event.orderId(), "DELIVERED");
+        } catch (JsonProcessingException e) {
+            log.error("Failed to deserialize delivery.completed event", e);
+        }
+    }
+
     private void updateOrderStatus(UUID orderId, String newStatus) {
         orderRepository.findById(orderId).ifPresent(order -> {
             String previousStatus = order.getStatus();
+            if (newStatus.equals(previousStatus)) {
+                log.info("Order {} already in status {}, skipping duplicate transition", orderId, newStatus);
+                return;
+            }
+
             order.setStatus(newStatus);
             orderRepository.save(order);
 
             OrderStatusChangedEvent statusEvent = new OrderStatusChangedEvent(
                     orderId, order.getUserId(), previousStatus, newStatus, OffsetDateTime.now());
             saveOutbox(orderId, Topics.ORDER_STATUS_CHANGED, statusEvent);
+            recordStatusHistory(orderId, newStatus, "SYSTEM", "Asynchronous status transition");
             log.info("Order {} status updated: {} -> {}", orderId, previousStatus, newStatus);
         });
     }
@@ -101,5 +125,16 @@ public class PaymentEventConsumer {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize event payload", e);
         }
+    }
+
+    private void recordStatusHistory(UUID orderId, String status, String source, String note) {
+        OrderStatusHistoryEntity history = new OrderStatusHistoryEntity();
+        history.setId(UUID.randomUUID());
+        history.setOrderId(orderId);
+        history.setStatus(status);
+        history.setSource(source);
+        history.setNote(note);
+        history.setCreatedAt(OffsetDateTime.now());
+        orderStatusHistoryRepository.save(history);
     }
 }

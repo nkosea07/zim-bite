@@ -7,6 +7,10 @@
 3. Frontend lint/test/build.
 4. OpenAPI lint and SQL syntax checks.
 5. Container image build scan (SAST + vulnerability scan).
+6. Security hardening workflow:
+   - secret scan (`gitleaks`)
+   - dependency vulnerability audit (`trivy`)
+   - JWT key rotation rehearsal test
 
 ## CD to Staging (merge to `main`)
 

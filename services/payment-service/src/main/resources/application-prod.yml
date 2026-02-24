@@ -1,0 +1,5 @@
+outbox:
+  publisher:
+    enabled: true
+    batch-size: ${OUTBOX_BATCH_SIZE:200}
+    fixed-delay-ms: ${OUTBOX_PUBLISHER_DELAY_MS:1000}

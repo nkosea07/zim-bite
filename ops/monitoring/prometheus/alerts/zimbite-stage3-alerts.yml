@@ -1,0 +1,42 @@
+groups:
+  - name: zimbite-stage3-core
+    rules:
+      - alert: ZimBiteKafkaConsumerLagHigh
+        expr: sum(kafka_consumergroup_lag{consumergroup=~"order-service|payment-service|delivery-service|notification-service"}) > 10000
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kafka consumer lag is above threshold"
+          description: "Total lag across critical consumer groups is above 10,000 records for 10 minutes."
+
+      - alert: ZimBiteOutboxBacklogAgeHigh
+        expr: max(outbox_oldest_unpublished_age_seconds{service=~"order-service|payment-service"}) > 120
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Outbox backlog age is high"
+          description: "Oldest unpublished outbox event is older than 120 seconds for 5 minutes."
+
+      - alert: ZimBiteApiLatencyP95High
+        expr: histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{uri=~"/api/v1/orders.*|/api/v1/payments.*|/api/v1/deliveries.*"}[5m]))) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Critical API latency p95 is high"
+          description: "P95 latency for order/payment/delivery APIs is above 1.5 seconds for 10 minutes."
+
+      - alert: ZimBiteDbPoolSaturationHigh
+        expr: max((hikaricp_connections_active{pool=~".*"} / hikaricp_connections_max{pool=~".*"}) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Database connection pool saturation is high"
+          description: "A Hikari connection pool has remained above 85% utilization for 5 minutes."

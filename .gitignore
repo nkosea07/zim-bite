@@ -21,3 +21,5 @@ dist/
 
 # Local runtime
 coverage/
+artifacts/
+.trivy-cache/

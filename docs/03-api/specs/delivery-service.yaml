@@ -23,6 +23,23 @@ paths:
           schema:
             type: string
             format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, riderId, status]
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                riderId:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  description: When value is DELIVERED, a delivery.completed event is published.
       responses:
         '200':
           description: Status updated

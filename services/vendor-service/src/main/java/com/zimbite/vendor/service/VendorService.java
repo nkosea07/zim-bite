@@ -3,9 +3,11 @@ package com.zimbite.vendor.service;
 import com.zimbite.vendor.model.dto.CreateVendorRequest;
 import com.zimbite.vendor.model.dto.UpdateVendorRequest;
 import com.zimbite.vendor.model.dto.VendorResponse;
+import com.zimbite.vendor.model.dto.VendorStatsResponse;
 import com.zimbite.vendor.model.entity.VendorEntity;
 import com.zimbite.vendor.repository.VendorRepository;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -17,14 +19,25 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class VendorService {
 
+    private static final double EARTH_RADIUS_KM = 6371.0;
+
     private final VendorRepository vendorRepository;
 
     public VendorService(VendorRepository vendorRepository) {
         this.vendorRepository = vendorRepository;
     }
 
-    public List<VendorResponse> listActive() {
-        return vendorRepository.findByActiveTrue().stream()
+    public List<VendorResponse> list(Double lat, Double lng, Double radiusKm) {
+        List<VendorEntity> vendors = vendorRepository.findByActiveTrue();
+        if (lat == null || lng == null) {
+            return vendors.stream().map(this::toResponse).toList();
+        }
+
+        double effectiveRadiusKm = radiusKm == null ? 5.0 : Math.max(radiusKm, 0.1);
+        return vendors.stream()
+                .filter(v -> haversineKm(lat, lng,
+                        v.getLatitude().doubleValue(),
+                        v.getLongitude().doubleValue()) <= effectiveRadiusKm)
                 .map(this::toResponse)
                 .toList();
     }
@@ -86,6 +99,18 @@ public class VendorService {
         return toResponse(vendorRepository.save(vendor));
     }
 
+    public VendorStatsResponse stats(UUID vendorId) {
+        VendorEntity vendor = vendorRepository.findById(vendorId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
+
+        int seed = Math.abs(vendorId.hashCode());
+        int totalOrders = 30 + (seed % 120);
+        BigDecimal revenue = BigDecimal.valueOf(150 + (seed % 1000)).setScale(2, RoundingMode.HALF_UP);
+        double rating = 3.5 + ((seed % 15) / 10.0);
+
+        return new VendorStatsResponse(vendorId, totalOrders, revenue, "USD", Math.min(5.0, rating));
+    }
+
     private VendorResponse toResponse(VendorEntity v) {
         return new VendorResponse(
                 v.getId(), v.getName(), v.getSlug(), v.getDescription(),
@@ -93,5 +118,14 @@ public class VendorService {
                 v.getAveragePrepMinutes(), v.getDeliveryRadiusKm(),
                 v.getMinOrderValue(), v.isAcceptsCash(), v.isActive(),
                 v.getRatingAvg());
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
     }
 }

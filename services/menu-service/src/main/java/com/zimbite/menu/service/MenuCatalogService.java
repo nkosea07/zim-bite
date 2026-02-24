@@ -1,7 +1,9 @@
 package com.zimbite.menu.service;
 
+import com.zimbite.menu.model.dto.CategoryResponse;
 import com.zimbite.menu.model.dto.CreateMenuItemRequest;
 import com.zimbite.menu.model.dto.MenuItemResponse;
+import com.zimbite.menu.model.dto.UpdateMenuItemRequest;
 import com.zimbite.menu.model.entity.MenuItemEntity;
 import com.zimbite.menu.repository.MenuItemRepository;
 import jakarta.transaction.Transactional;
@@ -25,15 +27,59 @@ public class MenuCatalogService {
   }
 
   @Transactional
+  public List<CategoryResponse> listCategories(UUID vendorId) {
+    return menuItemRepository.findDistinctCategoriesByVendorId(vendorId).stream()
+        .map(CategoryResponse::new)
+        .toList();
+  }
+
+  @Transactional
+  public MenuItemResponse getById(UUID itemId) {
+    return menuItemRepository.findById(itemId).map(this::toResponse).orElse(null);
+  }
+
+  @Transactional
   public MenuItemResponse create(UUID vendorId, CreateMenuItemRequest request) {
     MenuItemEntity item = new MenuItemEntity();
     item.setId(UUID.randomUUID());
     item.setVendorId(vendorId);
     item.setName(request.name());
+    item.setCategory("General");
     item.setBasePrice(request.basePrice());
     item.setCurrency(request.currency());
     item.setAvailable(true);
     item.setCreatedAt(OffsetDateTime.now());
+    return toResponse(menuItemRepository.save(item));
+  }
+
+  @Transactional
+  public MenuItemResponse update(UUID itemId, UpdateMenuItemRequest request) {
+    MenuItemEntity item = menuItemRepository.findById(itemId).orElse(null);
+    if (item == null) {
+      return null;
+    }
+    if (request.name() != null && !request.name().isBlank()) {
+      item.setName(request.name().trim());
+    }
+    if (request.category() != null && !request.category().isBlank()) {
+      item.setCategory(request.category().trim());
+    }
+    if (request.basePrice() != null) {
+      item.setBasePrice(request.basePrice());
+    }
+    if (request.currency() != null && !request.currency().isBlank()) {
+      item.setCurrency(request.currency().trim().toUpperCase());
+    }
+    return toResponse(menuItemRepository.save(item));
+  }
+
+  @Transactional
+  public MenuItemResponse updateAvailability(UUID itemId, boolean available) {
+    MenuItemEntity item = menuItemRepository.findById(itemId).orElse(null);
+    if (item == null) {
+      return null;
+    }
+    item.setAvailable(available);
     return toResponse(menuItemRepository.save(item));
   }
 
@@ -42,6 +88,7 @@ public class MenuCatalogService {
         item.getId(),
         item.getVendorId(),
         item.getName(),
+        item.getCategory(),
         item.getBasePrice(),
         item.getCurrency(),
         item.isAvailable()
