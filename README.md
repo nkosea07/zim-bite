@@ -42,6 +42,7 @@ On-demand breakfast delivery platform for Zimbabwe. Hot breakfast delivered betw
 
 ## Documentation
 
+- [Reference Prompt](docs/00-reference/zimbite.md)
 - [System Architecture](docs/01-architecture/system-overview.md)
 - [Service Catalog](docs/01-architecture/service-catalog.md)
 - [Communication Patterns](docs/01-architecture/communication-patterns.md)
@@ -68,6 +69,7 @@ On-demand breakfast delivery platform for Zimbabwe. Hot breakfast delivered betw
 - [JWT Key Rotation Rehearsal](docs/05-deployment/jwt-key-rotation-rehearsal.md)
 - [Operations Alerting Provisioning](docs/05-deployment/operations-alerting-provisioning.md)
 - [Service Rollback and Incident Runbook](docs/05-deployment/service-rollback-and-incident-runbook.md)
+- [Stage 3 Rollout Readiness](docs/05-deployment/stage-3-rollout-readiness.md)
 - [Stage 3 Execution Plan](docs/05-deployment/stage-3-execution-plan.md)
 - [Implementation TODO Tracker](docs/implementation-todo.md)
 
