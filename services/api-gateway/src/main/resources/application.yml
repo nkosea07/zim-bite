@@ -46,6 +46,10 @@ spring:
             - Path=/api/v1/analytics/**
 server:
   port: 8080
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/javascript,text/css,text/html,text/plain
 management:
   endpoints:
     web:

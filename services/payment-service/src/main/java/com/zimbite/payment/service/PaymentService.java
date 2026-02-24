@@ -9,15 +9,21 @@ import com.zimbite.payment.model.entity.PaymentOutboxEventEntity;
 import com.zimbite.payment.repository.PaymentOutboxEventRepository;
 import com.zimbite.payment.repository.PaymentRepository;
 import com.zimbite.shared.messaging.Topics;
+import com.zimbite.shared.messaging.contract.PaymentFailedEvent;
 import com.zimbite.shared.messaging.contract.PaymentInitiatedEvent;
+import com.zimbite.shared.messaging.contract.PaymentRefundedEvent;
 import com.zimbite.shared.messaging.contract.PaymentSucceededEvent;
 import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PaymentService {
+
+  private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
   private final PaymentRepository paymentRepository;
   private final PaymentOutboxEventRepository outboxEventRepository;
@@ -35,6 +41,21 @@ public class PaymentService {
 
   @Transactional
   public PaymentResponse initiate(InitiatePaymentRequest request) {
+    return initiate(request, null);
+  }
+
+  @Transactional
+  public PaymentResponse initiate(InitiatePaymentRequest request, String idempotencyKey) {
+    String normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
+    if (normalizedIdempotencyKey != null) {
+      PaymentEntity existing = paymentRepository.findByIdempotencyKey(normalizedIdempotencyKey).orElse(null);
+      if (existing != null) {
+        log.info("Reusing existing payment for idempotencyKey={}, paymentId={}",
+            normalizedIdempotencyKey, existing.getId());
+        return toResponse(existing);
+      }
+    }
+
     PaymentEntity payment = new PaymentEntity();
     payment.setId(UUID.randomUUID());
     payment.setOrderId(request.orderId());
@@ -42,6 +63,7 @@ public class PaymentService {
     payment.setStatus("PENDING");
     payment.setAmount(request.amount());
     payment.setCurrency(request.currency());
+    payment.setIdempotencyKey(normalizedIdempotencyKey);
     payment.setCreatedAt(OffsetDateTime.now());
 
     PaymentEntity saved = paymentRepository.save(payment);
@@ -65,6 +87,14 @@ public class PaymentService {
     if (payment == null) {
       return null;
     }
+    if ("SUCCEEDED".equals(payment.getStatus())) {
+      log.info("Ignoring duplicate success callback for paymentId={}", paymentId);
+      return toResponse(payment);
+    }
+    if ("FAILED".equals(payment.getStatus())) {
+      log.warn("Ignoring success callback for already failed paymentId={}", paymentId);
+      return toResponse(payment);
+    }
 
     payment.setStatus("SUCCEEDED");
     PaymentEntity saved = paymentRepository.save(payment);
@@ -78,6 +108,71 @@ public class PaymentService {
         OffsetDateTime.now()
     );
     saveOutbox(saved.getId(), Topics.PAYMENT_SUCCEEDED, event);
+
+    return toResponse(saved);
+  }
+
+  @Transactional
+  public PaymentResponse markFailed(UUID paymentId, String reason) {
+    PaymentEntity payment = paymentRepository.findById(paymentId).orElse(null);
+    if (payment == null) {
+      return null;
+    }
+    if ("FAILED".equals(payment.getStatus())) {
+      log.info("Ignoring duplicate failure callback for paymentId={}", paymentId);
+      return toResponse(payment);
+    }
+    if ("SUCCEEDED".equals(payment.getStatus())) {
+      log.warn("Ignoring failure callback for already succeeded paymentId={}", paymentId);
+      return toResponse(payment);
+    }
+
+    payment.setStatus("FAILED");
+    PaymentEntity saved = paymentRepository.save(payment);
+
+    PaymentFailedEvent event = new PaymentFailedEvent(
+        saved.getId(),
+        saved.getOrderId(),
+        saved.getAmount(),
+        saved.getCurrency(),
+        saved.getProvider(),
+        normalizeFailureReason(reason),
+        OffsetDateTime.now()
+    );
+    saveOutbox(saved.getId(), Topics.PAYMENT_FAILED, event);
+
+    return toResponse(saved);
+  }
+
+  @Transactional
+  public PaymentResponse markRefunded(UUID paymentId, String reason) {
+    PaymentEntity payment = paymentRepository.findById(paymentId).orElse(null);
+    if (payment == null) {
+      return null;
+    }
+    if ("REFUNDED".equals(payment.getStatus())) {
+      log.info("Ignoring duplicate refund callback for paymentId={}", paymentId);
+      return toResponse(payment);
+    }
+    if (!"SUCCEEDED".equals(payment.getStatus())) {
+      log.warn("Ignoring refund request for non-succeeded paymentId={}, status={}",
+          paymentId, payment.getStatus());
+      return toResponse(payment);
+    }
+
+    payment.setStatus("REFUNDED");
+    PaymentEntity saved = paymentRepository.save(payment);
+
+    PaymentRefundedEvent event = new PaymentRefundedEvent(
+        saved.getId(),
+        saved.getOrderId(),
+        saved.getAmount(),
+        saved.getCurrency(),
+        saved.getProvider(),
+        normalizeRefundReason(reason),
+        OffsetDateTime.now()
+    );
+    saveOutbox(saved.getId(), Topics.PAYMENT_REFUNDED, event);
 
     return toResponse(saved);
   }
@@ -110,5 +205,29 @@ public class PaymentService {
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Failed to serialize payment event payload", e);
     }
+  }
+
+  private String normalizeIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null) {
+      return null;
+    }
+    String trimmed = idempotencyKey.trim();
+    return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private String normalizeFailureReason(String reason) {
+    if (reason == null) {
+      return "provider_callback_failed";
+    }
+    String trimmed = reason.trim();
+    return trimmed.isEmpty() ? "provider_callback_failed" : trimmed;
+  }
+
+  private String normalizeRefundReason(String reason) {
+    if (reason == null) {
+      return "merchant_requested";
+    }
+    String trimmed = reason.trim();
+    return trimmed.isEmpty() ? "merchant_requested" : trimmed;
   }
 }

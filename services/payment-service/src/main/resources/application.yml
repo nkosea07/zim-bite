@@ -38,3 +38,7 @@ outbox:
     enabled: ${OUTBOX_PUBLISHER_ENABLED:false}
     batch-size: ${OUTBOX_BATCH_SIZE:50}
     fixed-delay-ms: ${OUTBOX_PUBLISHER_DELAY_MS:5000}
+
+payment:
+  auto-initiation:
+    default-provider: ${PAYMENT_AUTO_PROVIDER:ECOCASH}

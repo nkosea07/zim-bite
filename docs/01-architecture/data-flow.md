@@ -15,13 +15,11 @@ sequenceDiagram
   U->>App: Confirm cart and checkout
   App->>O: POST /orders
   O-->>App: order_id + PENDING_PAYMENT
-  App->>P: POST /payments/initiate
-  P-->>App: payment pending
-  P-->>O: payment.succeeded event
-  O-->>D: order.ready_for_dispatch event
+  O-->>P: order.created event
+  P-->>O: payment.succeeded/payment.failed event
+  P-->>D: payment.succeeded event
   D-->>O: delivery.assigned event
-  D-->>O: courier_picked_up event
-  D-->>O: delivered event
+  D-->>O: delivery.completed event
   O-->>N: order.status.changed events
   N-->>U: Push/SMS updates
 ```

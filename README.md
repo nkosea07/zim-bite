@@ -61,6 +61,8 @@ On-demand breakfast delivery platform for Zimbabwe. Hot breakfast delivered betw
 - [CI/CD Pipeline](docs/05-deployment/ci-cd-pipeline.md)
 - [Monitoring](docs/05-deployment/monitoring-observability.md)
 - [Scaling Strategy](docs/05-deployment/scaling-strategy.md)
+- [Outbox Rollout](docs/05-deployment/outbox-rollout.md)
+- [Implementation TODO Tracker](docs/implementation-todo.md)
 
 ## Payments
 

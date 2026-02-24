@@ -1,0 +1,13 @@
+:root {
+  --bg: #f4f1ea;
+  --bg-accent: radial-gradient(circle at 10% 0%, #f7d585 0%, rgba(247, 213, 133, 0.1) 30%, rgba(244, 241, 234, 1) 80%);
+  --surface: #fff9ec;
+  --text: #1f2a2a;
+  --muted: #6c7a7a;
+  --line: #dfd4bf;
+  --brand: #d24d29;
+  --brand-strong: #9e2f14;
+  --success: #1f7a57;
+  --shadow: 0 12px 40px rgba(36, 33, 24, 0.08);
+  --radius: 16px;
+}

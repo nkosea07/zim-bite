@@ -25,6 +25,9 @@ public class MenuItemEntity {
   private BigDecimal basePrice;
 
   @Column(nullable = false)
+  private String category;
+
+  @Column(nullable = false)
   private String currency;
 
   @Column(name = "is_available", nullable = false)
@@ -71,6 +74,14 @@ public class MenuItemEntity {
 
   public void setCurrency(String currency) {
     this.currency = currency;
+  }
+
+  public String getCategory() {
+    return category;
+  }
+
+  public void setCategory(String category) {
+    this.category = category;
   }
 
   public boolean isAvailable() {

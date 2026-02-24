@@ -27,3 +27,9 @@ jwt:
   secret: ${JWT_SECRET:zimbite-dev-secret-key-min-32-bytes!!}
   access-ttl-seconds: ${JWT_ACCESS_TTL:900}
   refresh-ttl-seconds: ${JWT_REFRESH_TTL:2592000}
+
+auth:
+  otp:
+    ttl-seconds: ${AUTH_OTP_TTL_SECONDS:300}
+    max-attempts: ${AUTH_OTP_MAX_ATTEMPTS:3}
+    dev-static-code: ${AUTH_OTP_DEV_STATIC_CODE:123456}
