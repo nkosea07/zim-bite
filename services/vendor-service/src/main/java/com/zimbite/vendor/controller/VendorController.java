@@ -23,53 +23,38 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/vendors")
 public class VendorController {
 
-  private final VendorService vendorService;
+    private final VendorService vendorService;
 
-  public VendorController(VendorService vendorService) {
-    this.vendorService = vendorService;
-  }
-
-  @GetMapping
-  public ResponseEntity<List<VendorResponse>> list(
-      @RequestParam(required = false) Double lat,
-      @RequestParam(required = false) Double lng,
-      @RequestParam(name = "radius_km", required = false) Double radiusKm
-  ) {
-    return ResponseEntity.ok(vendorService.list(lat, lng, radiusKm));
-  }
-
-  @PostMapping
-  public ResponseEntity<VendorResponse> create(@Valid @RequestBody CreateVendorRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.create(request));
-  }
-
-  @GetMapping("/{vendorId}")
-  public ResponseEntity<VendorResponse> get(@PathVariable UUID vendorId) {
-    VendorResponse response = vendorService.get(vendorId);
-    if (response == null) {
-      return ResponseEntity.notFound().build();
+    public VendorController(VendorService vendorService) {
+        this.vendorService = vendorService;
     }
-    return ResponseEntity.ok(response);
-  }
 
-  @PatchMapping("/{vendorId}")
-  public ResponseEntity<VendorResponse> update(
-      @PathVariable UUID vendorId,
-      @RequestBody UpdateVendorRequest request
-  ) {
-    VendorResponse response = vendorService.update(vendorId, request);
-    if (response == null) {
-      return ResponseEntity.notFound().build();
+    @GetMapping
+    public ResponseEntity<List<VendorResponse>> listVendors(
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            @RequestParam(name = "radius_km", required = false) Double radiusKm) {
+        return ResponseEntity.ok(vendorService.list(lat, lng, radiusKm));
     }
-    return ResponseEntity.ok(response);
-  }
 
-  @GetMapping("/{vendorId}/stats")
-  public ResponseEntity<VendorStatsResponse> stats(@PathVariable UUID vendorId) {
-    VendorStatsResponse response = vendorService.stats(vendorId);
-    if (response == null) {
-      return ResponseEntity.notFound().build();
+    @PostMapping
+    public ResponseEntity<VendorResponse> createVendor(@Valid @RequestBody CreateVendorRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.create(request));
     }
-    return ResponseEntity.ok(response);
-  }
+
+    @GetMapping("/{vendorId}")
+    public ResponseEntity<VendorResponse> getVendor(@PathVariable UUID vendorId) {
+        return ResponseEntity.ok(vendorService.getById(vendorId));
+    }
+
+    @PatchMapping("/{vendorId}")
+    public ResponseEntity<VendorResponse> updateVendor(@PathVariable UUID vendorId,
+                                                        @RequestBody UpdateVendorRequest request) {
+        return ResponseEntity.ok(vendorService.update(vendorId, request));
+    }
+
+    @GetMapping("/{vendorId}/stats")
+    public ResponseEntity<VendorStatsResponse> stats(@PathVariable UUID vendorId) {
+        return ResponseEntity.ok(vendorService.stats(vendorId));
+    }
 }
