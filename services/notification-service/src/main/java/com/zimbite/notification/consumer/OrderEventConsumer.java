@@ -2,6 +2,7 @@ package com.zimbite.notification.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zimbite.notification.service.NotificationQueryService;
 import com.zimbite.shared.messaging.Topics;
 import com.zimbite.shared.messaging.contract.DeliveryAssignedEvent;
 import com.zimbite.shared.messaging.contract.OrderCreatedEvent;
@@ -19,9 +20,11 @@ public class OrderEventConsumer {
     private static final Logger log = LoggerFactory.getLogger(OrderEventConsumer.class);
 
     private final ObjectMapper objectMapper;
+    private final NotificationQueryService notificationService;
 
-    public OrderEventConsumer(ObjectMapper objectMapper) {
+    public OrderEventConsumer(ObjectMapper objectMapper, NotificationQueryService notificationService) {
         this.objectMapper = objectMapper;
+        this.notificationService = notificationService;
     }
 
     @KafkaListener(topics = Topics.ORDER_CREATED, groupId = "notification-service")
@@ -29,7 +32,11 @@ public class OrderEventConsumer {
         try {
             OrderCreatedEvent event = objectMapper.readValue(payload, OrderCreatedEvent.class);
             log.info("Notifying user {} of new order {}", event.userId(), event.orderId());
-            sendOrderConfirmation(event);
+            notificationService.createNotification(
+                    event.userId(),
+                    "ORDER_CONFIRMATION",
+                    String.format("Your order %s has been placed. Total: %s %s",
+                            event.orderId(), event.totalAmount(), event.currency()));
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize order.created event", e);
         }
@@ -40,7 +47,8 @@ public class OrderEventConsumer {
         try {
             PaymentSucceededEvent event = objectMapper.readValue(payload, PaymentSucceededEvent.class);
             log.info("Notifying payment success for order {}", event.orderId());
-            sendPaymentConfirmation(event);
+            // PaymentSucceededEvent does not carry userId; notification will be linked when userId is available via order lookup
+            log.info("Dispatching PAYMENT_SUCCESS notification: orderId={}, paymentId={}", event.orderId(), event.paymentId());
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize payment.succeeded event", e);
         }
@@ -50,8 +58,7 @@ public class OrderEventConsumer {
     public void onDeliveryAssigned(String payload) {
         try {
             DeliveryAssignedEvent event = objectMapper.readValue(payload, DeliveryAssignedEvent.class);
-            log.info("Notifying delivery assigned for order {}, rider {}", event.orderId(), event.riderId());
-            sendRiderAssignmentNotification(event);
+            log.info("Delivery assigned for order {}, rider {}", event.orderId(), event.riderId());
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize delivery.assigned event", e);
         }
@@ -62,8 +69,12 @@ public class OrderEventConsumer {
         try {
             OrderStatusChangedEvent event = objectMapper.readValue(payload, OrderStatusChangedEvent.class);
             log.info("Notifying status transition for order {}: {} -> {}",
-                event.orderId(), event.previousStatus(), event.newStatus());
-            sendOrderStatusUpdate(event);
+                    event.orderId(), event.previousStatus(), event.newStatus());
+            notificationService.createNotification(
+                    event.userId(),
+                    "ORDER_STATUS_CHANGED",
+                    String.format("Your order status changed from %s to %s.",
+                            event.previousStatus(), event.newStatus()));
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize order.status.changed event", e);
         }
@@ -73,58 +84,9 @@ public class OrderEventConsumer {
     public void onPaymentFailed(String payload) {
         try {
             PaymentFailedEvent event = objectMapper.readValue(payload, PaymentFailedEvent.class);
-            log.info("Notifying payment failure for order {} with reason={}", event.orderId(), event.reason());
-            sendPaymentFailure(event);
+            log.info("Payment failure for order {} with reason={}", event.orderId(), event.reason());
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize payment.failed event", e);
         }
-    }
-
-    private void sendOrderConfirmation(OrderCreatedEvent event) {
-        log.info(
-            "Dispatching ORDER_CONFIRMATION notification: userId={}, orderId={}, amount={} {} via channels=[PUSH,SMS]",
-            event.userId(),
-            event.orderId(),
-            event.totalAmount(),
-            event.currency()
-        );
-    }
-
-    private void sendPaymentConfirmation(PaymentSucceededEvent event) {
-        log.info(
-            "Dispatching PAYMENT_SUCCESS notification: orderId={}, paymentId={}, amount={} {}, provider={} via channels=[PUSH,SMS]",
-            event.orderId(),
-            event.paymentId(),
-            event.amount(),
-            event.currency(),
-            event.provider()
-        );
-    }
-
-    private void sendRiderAssignmentNotification(DeliveryAssignedEvent event) {
-        log.info(
-            "Dispatching DELIVERY_ASSIGNED notification: orderId={}, deliveryId={}, riderId={} via channels=[PUSH,SMS]",
-            event.orderId(),
-            event.deliveryId(),
-            event.riderId()
-        );
-    }
-
-    private void sendOrderStatusUpdate(OrderStatusChangedEvent event) {
-        log.info(
-            "Dispatching ORDER_STATUS_CHANGED notification: orderId={}, from={}, to={} via channels=[PUSH,SMS]",
-            event.orderId(),
-            event.previousStatus(),
-            event.newStatus()
-        );
-    }
-
-    private void sendPaymentFailure(PaymentFailedEvent event) {
-        log.info(
-            "Dispatching PAYMENT_FAILED notification: orderId={}, paymentId={}, reason={} via channels=[PUSH,SMS]",
-            event.orderId(),
-            event.paymentId(),
-            event.reason()
-        );
     }
 }
