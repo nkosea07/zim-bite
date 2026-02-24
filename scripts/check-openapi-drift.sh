@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-spec_paths=$(rg -n '^  /' docs/03-api/specs/*.yaml | wc -l | tr -d ' ')
+spec_paths=$(grep -rn '^  /' docs/03-api/specs/*.yaml | wc -l | tr -d ' ')
 controller_files=$(find services -path '*/src/main/java/*/controller/*.java' -type f)
-implemented_endpoints=$(echo "$controller_files" | xargs rg -n '@GetMapping|@PostMapping|@PatchMapping|@PutMapping|@DeleteMapping' | rg -v 'PingController' | wc -l | tr -d ' ')
+implemented_endpoints=$(echo "$controller_files" | xargs grep -nE '@GetMapping|@PostMapping|@PatchMapping|@PutMapping|@DeleteMapping' | grep -v 'PingController' | wc -l | tr -d ' ')
 
 echo "OpenAPI paths: $spec_paths"
 echo "Implemented endpoints: $implemented_endpoints"
@@ -19,7 +19,7 @@ fi
 check_pattern() {
   local file="$1"
   local pattern="$2"
-  if ! rg -q "$pattern" "$file"; then
+  if ! grep -qE "$pattern" "$file"; then
     echo "ERROR: Missing pattern '$pattern' in $file"
     exit 1
   fi

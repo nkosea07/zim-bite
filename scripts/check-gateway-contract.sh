@@ -51,11 +51,11 @@ while IFS='|' read -r route_id route_prefix; do
   has_server_url=0
   has_paths=0
 
-  if rg -q "^[[:space:]]*-[[:space:]]*url:[[:space:]]*${escaped_prefix}[[:space:]]*$" "$spec_file"; then
+  if grep -qE "^[[:space:]]*-[[:space:]]*url:[[:space:]]*${escaped_prefix}[[:space:]]*$" "$spec_file"; then
     has_server_url=1
   fi
 
-  if rg -q "^  /" "$spec_file"; then
+  if grep -q "^  /" "$spec_file"; then
     has_paths=1
   fi
 
@@ -69,7 +69,7 @@ done < "$ROUTE_ENTRIES_FILE"
 
 for spec_path in "$SPECS_DIR"/*.yaml; do
   spec_id="$(basename "$spec_path" .yaml)"
-  if ! rg -q "^${spec_id}\\|" "$ROUTE_ENTRIES_FILE"; then
+  if ! grep -q "^${spec_id}|" "$ROUTE_ENTRIES_FILE"; then
     echo "- $spec_id.yaml" >> "$EXTRA_SPECS_FILE"
     failure=1
   fi
