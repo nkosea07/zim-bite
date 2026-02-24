@@ -75,10 +75,19 @@ Status: Completed (2026-02-24)
 
 ## Sprint 3 Scope
 
-Status: In progress (2026-02-24)
+Status: Completed (2026-02-24)
 
 ### Deliverables
 
 1. Replace synthetic pickup/dropoff coordinates with order snapshot coordinates derived from vendor and delivery address data.
 2. Enforce tracking ingestion freshness/outlier validation before persisting rider location pings.
 3. Use route-aware ETA estimation with telemetry-informed speed envelopes.
+
+## Sprint 4 Scope
+
+Status: Completed (2026-02-24)
+
+### Deliverables
+
+1. Complete notification fan-out for payment and delivery milestones by resolving order recipient identity and persisting notifications.
+2. Persist analytics projections to PostgreSQL and bootstrap in-memory aggregates from persisted projections on startup.

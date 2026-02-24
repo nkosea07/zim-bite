@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zimbite.analytics.repository.DeliveryProjectionRepository;
+import com.zimbite.analytics.repository.OrderProjectionRepository;
+import com.zimbite.analytics.repository.RefundedPaymentProjectionRepository;
+import com.zimbite.analytics.repository.SucceededPaymentProjectionRepository;
 import com.zimbite.analytics.service.AnalyticsQueryService;
 import com.zimbite.shared.messaging.contract.OrderCreatedEvent;
 import com.zimbite.shared.messaging.contract.PaymentSucceededEvent;
@@ -11,14 +15,43 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class AnalyticsControllerTest {
+
+  @Mock
+  private OrderProjectionRepository orderProjectionRepository;
+
+  @Mock
+  private SucceededPaymentProjectionRepository succeededPaymentProjectionRepository;
+
+  @Mock
+  private RefundedPaymentProjectionRepository refundedPaymentProjectionRepository;
+
+  @Mock
+  private DeliveryProjectionRepository deliveryProjectionRepository;
+
+  private AnalyticsQueryService service;
+  private AnalyticsController controller;
+
+  @BeforeEach
+  void setUp() {
+    service = new AnalyticsQueryService(
+        orderProjectionRepository,
+        succeededPaymentProjectionRepository,
+        refundedPaymentProjectionRepository,
+        deliveryProjectionRepository
+    );
+    controller = new AnalyticsController(service);
+  }
 
   @Test
   void revenueReturnsSeriesForRange() {
-    AnalyticsQueryService service = new AnalyticsQueryService();
-    AnalyticsController controller = new AnalyticsController(service);
     var response = controller.revenue(LocalDate.parse("2026-02-20"), LocalDate.parse("2026-02-22"), "USD");
 
     assertNotNull(response.getBody());
@@ -27,8 +60,6 @@ class AnalyticsControllerTest {
 
   @Test
   void vendorDashboardReflectsRecordedEvents() {
-    AnalyticsQueryService service = new AnalyticsQueryService();
-    AnalyticsController controller = new AnalyticsController(service);
     UUID vendorId = UUID.randomUUID();
     UUID orderId = UUID.randomUUID();
 

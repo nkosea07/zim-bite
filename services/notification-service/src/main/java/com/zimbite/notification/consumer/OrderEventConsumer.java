@@ -2,13 +2,18 @@ package com.zimbite.notification.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zimbite.notification.model.entity.OrderRecipientEntity;
+import com.zimbite.notification.repository.OrderRecipientRepository;
 import com.zimbite.notification.service.NotificationQueryService;
 import com.zimbite.shared.messaging.Topics;
 import com.zimbite.shared.messaging.contract.DeliveryAssignedEvent;
+import com.zimbite.shared.messaging.contract.DeliveryCompletedEvent;
 import com.zimbite.shared.messaging.contract.OrderCreatedEvent;
 import com.zimbite.shared.messaging.contract.OrderStatusChangedEvent;
 import com.zimbite.shared.messaging.contract.PaymentFailedEvent;
+import com.zimbite.shared.messaging.contract.PaymentRefundedEvent;
 import com.zimbite.shared.messaging.contract.PaymentSucceededEvent;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -21,10 +26,16 @@ public class OrderEventConsumer {
 
     private final ObjectMapper objectMapper;
     private final NotificationQueryService notificationService;
+    private final OrderRecipientRepository orderRecipientRepository;
 
-    public OrderEventConsumer(ObjectMapper objectMapper, NotificationQueryService notificationService) {
+    public OrderEventConsumer(
+            ObjectMapper objectMapper,
+            NotificationQueryService notificationService,
+            OrderRecipientRepository orderRecipientRepository
+    ) {
         this.objectMapper = objectMapper;
         this.notificationService = notificationService;
+        this.orderRecipientRepository = orderRecipientRepository;
     }
 
     @KafkaListener(topics = Topics.ORDER_CREATED, groupId = "notification-service")
@@ -47,8 +58,17 @@ public class OrderEventConsumer {
         try {
             PaymentSucceededEvent event = objectMapper.readValue(payload, PaymentSucceededEvent.class);
             log.info("Notifying payment success for order {}", event.orderId());
-            // PaymentSucceededEvent does not carry userId; notification will be linked when userId is available via order lookup
-            log.info("Dispatching PAYMENT_SUCCESS notification: orderId={}, paymentId={}", event.orderId(), event.paymentId());
+            createOrderScopedNotification(
+                    event.orderId(),
+                    "PAYMENT_SUCCESS",
+                    String.format(
+                            "Payment confirmed for order %s (%s %s) via %s.",
+                            event.orderId(),
+                            event.amount(),
+                            event.currency(),
+                            event.provider()
+                    )
+            );
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize payment.succeeded event", e);
         }
@@ -59,8 +79,32 @@ public class OrderEventConsumer {
         try {
             DeliveryAssignedEvent event = objectMapper.readValue(payload, DeliveryAssignedEvent.class);
             log.info("Delivery assigned for order {}, rider {}", event.orderId(), event.riderId());
+            createOrderScopedNotification(
+                    event.orderId(),
+                    "DELIVERY_ASSIGNED",
+                    String.format(
+                            "Delivery assigned for order %s. Rider %s is on the way.",
+                            event.orderId(),
+                            event.riderId()
+                    )
+            );
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize delivery.assigned event", e);
+        }
+    }
+
+    @KafkaListener(topics = Topics.DELIVERY_COMPLETED, groupId = "notification-service")
+    public void onDeliveryCompleted(String payload) {
+        try {
+            DeliveryCompletedEvent event = objectMapper.readValue(payload, DeliveryCompletedEvent.class);
+            log.info("Delivery completed for order {}, rider {}", event.orderId(), event.riderId());
+            createOrderScopedNotification(
+                    event.orderId(),
+                    "DELIVERY_COMPLETED",
+                    String.format("Order %s has been delivered successfully.", event.orderId())
+            );
+        } catch (JsonProcessingException e) {
+            log.error("Failed to deserialize delivery.completed event", e);
         }
     }
 
@@ -85,8 +129,46 @@ public class OrderEventConsumer {
         try {
             PaymentFailedEvent event = objectMapper.readValue(payload, PaymentFailedEvent.class);
             log.info("Payment failure for order {} with reason={}", event.orderId(), event.reason());
+            createOrderScopedNotification(
+                    event.orderId(),
+                    "PAYMENT_FAILED",
+                    String.format(
+                            "Payment failed for order %s. Reason: %s.",
+                            event.orderId(),
+                            event.reason()
+                    )
+            );
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize payment.failed event", e);
         }
+    }
+
+    @KafkaListener(topics = Topics.PAYMENT_REFUNDED, groupId = "notification-service")
+    public void onPaymentRefunded(String payload) {
+        try {
+            PaymentRefundedEvent event = objectMapper.readValue(payload, PaymentRefundedEvent.class);
+            log.info("Payment refunded for order {} with reason={}", event.orderId(), event.reason());
+            createOrderScopedNotification(
+                    event.orderId(),
+                    "PAYMENT_REFUNDED",
+                    String.format(
+                            "Payment refunded for order %s (%s %s).",
+                            event.orderId(),
+                            event.amount(),
+                            event.currency()
+                    )
+            );
+        } catch (JsonProcessingException e) {
+            log.error("Failed to deserialize payment.refunded event", e);
+        }
+    }
+
+    private void createOrderScopedNotification(UUID orderId, String type, String message) {
+        OrderRecipientEntity recipient = orderRecipientRepository.findById(orderId).orElse(null);
+        if (recipient == null) {
+            log.warn("Skipping notification type={} because order {} was not found", type, orderId);
+            return;
+        }
+        notificationService.createNotification(recipient.getUserId(), type, message);
     }
 }

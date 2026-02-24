@@ -1,10 +1,20 @@
 package com.zimbite.analytics.service;
 
+import com.zimbite.analytics.model.entity.DeliveryProjectionEntity;
+import com.zimbite.analytics.model.entity.OrderProjectionEntity;
+import com.zimbite.analytics.model.entity.RefundedPaymentProjectionEntity;
+import com.zimbite.analytics.model.entity.SucceededPaymentProjectionEntity;
+import com.zimbite.analytics.repository.DeliveryProjectionRepository;
+import com.zimbite.analytics.repository.OrderProjectionRepository;
+import com.zimbite.analytics.repository.RefundedPaymentProjectionRepository;
+import com.zimbite.analytics.repository.SucceededPaymentProjectionRepository;
 import com.zimbite.shared.messaging.contract.DeliveryAssignedEvent;
 import com.zimbite.shared.messaging.contract.DeliveryCompletedEvent;
 import com.zimbite.shared.messaging.contract.OrderCreatedEvent;
 import com.zimbite.shared.messaging.contract.PaymentRefundedEvent;
 import com.zimbite.shared.messaging.contract.PaymentSucceededEvent;
+import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -18,26 +28,110 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AnalyticsQueryService {
 
+  private static final Logger log = LoggerFactory.getLogger(AnalyticsQueryService.class);
+
   private static final String DEFAULT_CURRENCY = "USD";
   private static final String ZWL_CURRENCY = "ZWL";
 
   private final Clock clock;
+  private final OrderProjectionRepository orderProjectionRepository;
+  private final SucceededPaymentProjectionRepository succeededPaymentProjectionRepository;
+  private final RefundedPaymentProjectionRepository refundedPaymentProjectionRepository;
+  private final DeliveryProjectionRepository deliveryProjectionRepository;
+
   private final Map<UUID, OrderSnapshot> ordersById = new ConcurrentHashMap<>();
   private final Map<UUID, PaymentSnapshot> succeededPaymentsById = new ConcurrentHashMap<>();
   private final Map<UUID, PaymentSnapshot> refundedPaymentsById = new ConcurrentHashMap<>();
   private final Map<UUID, DeliverySnapshot> deliveriesById = new ConcurrentHashMap<>();
 
-  public AnalyticsQueryService() {
-    this(Clock.systemUTC());
+  public AnalyticsQueryService(
+      OrderProjectionRepository orderProjectionRepository,
+      SucceededPaymentProjectionRepository succeededPaymentProjectionRepository,
+      RefundedPaymentProjectionRepository refundedPaymentProjectionRepository,
+      DeliveryProjectionRepository deliveryProjectionRepository
+  ) {
+    this(
+        Clock.systemUTC(),
+        orderProjectionRepository,
+        succeededPaymentProjectionRepository,
+        refundedPaymentProjectionRepository,
+        deliveryProjectionRepository
+    );
   }
 
-  AnalyticsQueryService(Clock clock) {
+  AnalyticsQueryService(
+      Clock clock,
+      OrderProjectionRepository orderProjectionRepository,
+      SucceededPaymentProjectionRepository succeededPaymentProjectionRepository,
+      RefundedPaymentProjectionRepository refundedPaymentProjectionRepository,
+      DeliveryProjectionRepository deliveryProjectionRepository
+  ) {
     this.clock = clock;
+    this.orderProjectionRepository = orderProjectionRepository;
+    this.succeededPaymentProjectionRepository = succeededPaymentProjectionRepository;
+    this.refundedPaymentProjectionRepository = refundedPaymentProjectionRepository;
+    this.deliveryProjectionRepository = deliveryProjectionRepository;
+  }
+
+  @PostConstruct
+  @Transactional
+  public void bootstrapFromStore() {
+    ordersById.clear();
+    succeededPaymentsById.clear();
+    refundedPaymentsById.clear();
+    deliveriesById.clear();
+
+    orderProjectionRepository.findAll().forEach(entity -> ordersById.put(entity.getOrderId(), new OrderSnapshot(
+        entity.getOrderId(),
+        entity.getVendorId(),
+        entity.getCurrency(),
+        entity.getCreatedAt()
+    )));
+
+    succeededPaymentProjectionRepository.findAll().forEach(entity -> succeededPaymentsById.put(
+        entity.getPaymentId(),
+        new PaymentSnapshot(
+            entity.getPaymentId(),
+            entity.getOrderId(),
+            entity.getAmount(),
+            entity.getCurrency(),
+            entity.getHappenedAt()
+        )
+    ));
+
+    refundedPaymentProjectionRepository.findAll().forEach(entity -> refundedPaymentsById.put(
+        entity.getPaymentId(),
+        new PaymentSnapshot(
+            entity.getPaymentId(),
+            entity.getOrderId(),
+            entity.getAmount(),
+            entity.getCurrency(),
+            entity.getHappenedAt()
+        )
+    ));
+
+    deliveryProjectionRepository.findAll().forEach(entity -> deliveriesById.put(entity.getDeliveryId(), new DeliverySnapshot(
+        entity.getDeliveryId(),
+        entity.getOrderId(),
+        entity.getRiderId(),
+        entity.getAssignedAt(),
+        entity.getCompletedAt()
+    )));
+
+    log.info(
+        "Loaded analytics projections: orders={}, succeededPayments={}, refundedPayments={}, deliveries={}",
+        ordersById.size(),
+        succeededPaymentsById.size(),
+        refundedPaymentsById.size(),
+        deliveriesById.size()
+    );
   }
 
   public Map<String, Object> vendorDashboard(UUID vendorId) {
@@ -116,16 +210,28 @@ public class AnalyticsQueryService {
     );
   }
 
+  @Transactional
   public void recordOrderCreated(OrderCreatedEvent event) {
+    OffsetDateTime now = OffsetDateTime.now(clock);
     ordersById.put(event.orderId(), new OrderSnapshot(
         event.orderId(),
         event.vendorId(),
         event.currency(),
         event.createdAt()
     ));
+
+    OrderProjectionEntity projection = new OrderProjectionEntity();
+    projection.setOrderId(event.orderId());
+    projection.setVendorId(event.vendorId());
+    projection.setCurrency(event.currency());
+    projection.setCreatedAt(event.createdAt());
+    projection.setUpdatedAt(now);
+    orderProjectionRepository.save(projection);
   }
 
+  @Transactional
   public void recordPaymentSucceeded(PaymentSucceededEvent event) {
+    OffsetDateTime now = OffsetDateTime.now(clock);
     succeededPaymentsById.put(event.paymentId(), new PaymentSnapshot(
         event.paymentId(),
         event.orderId(),
@@ -133,9 +239,20 @@ public class AnalyticsQueryService {
         event.currency(),
         event.completedAt()
     ));
+
+    SucceededPaymentProjectionEntity projection = new SucceededPaymentProjectionEntity();
+    projection.setPaymentId(event.paymentId());
+    projection.setOrderId(event.orderId());
+    projection.setAmount(event.amount());
+    projection.setCurrency(event.currency());
+    projection.setHappenedAt(event.completedAt());
+    projection.setUpdatedAt(now);
+    succeededPaymentProjectionRepository.save(projection);
   }
 
+  @Transactional
   public void recordPaymentRefunded(PaymentRefundedEvent event) {
+    OffsetDateTime now = OffsetDateTime.now(clock);
     refundedPaymentsById.put(event.paymentId(), new PaymentSnapshot(
         event.paymentId(),
         event.orderId(),
@@ -143,24 +260,69 @@ public class AnalyticsQueryService {
         event.currency(),
         event.refundedAt()
     ));
+
+    RefundedPaymentProjectionEntity projection = new RefundedPaymentProjectionEntity();
+    projection.setPaymentId(event.paymentId());
+    projection.setOrderId(event.orderId());
+    projection.setAmount(event.amount());
+    projection.setCurrency(event.currency());
+    projection.setHappenedAt(event.refundedAt());
+    projection.setUpdatedAt(now);
+    refundedPaymentProjectionRepository.save(projection);
   }
 
+  @Transactional
   public void recordDeliveryAssigned(DeliveryAssignedEvent event) {
-    deliveriesById.compute(event.deliveryId(), (deliveryId, existing) -> new DeliverySnapshot(
+    DeliveryProjectionEntity projection = deliveryProjectionRepository
+        .findById(event.deliveryId())
+        .orElseGet(DeliveryProjectionEntity::new);
+
+    projection.setDeliveryId(event.deliveryId());
+    projection.setOrderId(event.orderId());
+    projection.setRiderId(event.riderId());
+    projection.setAssignedAt(event.assignedAt());
+    if (projection.getCompletedAt() == null) {
+      DeliverySnapshot existing = deliveriesById.get(event.deliveryId());
+      if (existing != null) {
+        projection.setCompletedAt(existing.completedAt());
+      }
+    }
+    projection.setUpdatedAt(OffsetDateTime.now(clock));
+    deliveryProjectionRepository.save(projection);
+
+    deliveriesById.put(event.deliveryId(), new DeliverySnapshot(
         event.deliveryId(),
         event.orderId(),
         event.riderId(),
         event.assignedAt(),
-        existing == null ? null : existing.completedAt()
+        projection.getCompletedAt()
     ));
   }
 
+  @Transactional
   public void recordDeliveryCompleted(DeliveryCompletedEvent event) {
-    deliveriesById.compute(event.deliveryId(), (deliveryId, existing) -> new DeliverySnapshot(
+    DeliveryProjectionEntity projection = deliveryProjectionRepository
+        .findById(event.deliveryId())
+        .orElseGet(DeliveryProjectionEntity::new);
+
+    projection.setDeliveryId(event.deliveryId());
+    projection.setOrderId(event.orderId());
+    projection.setRiderId(event.riderId());
+    if (projection.getAssignedAt() == null) {
+      DeliverySnapshot existing = deliveriesById.get(event.deliveryId());
+      if (existing != null) {
+        projection.setAssignedAt(existing.assignedAt());
+      }
+    }
+    projection.setCompletedAt(event.completedAt());
+    projection.setUpdatedAt(OffsetDateTime.now(clock));
+    deliveryProjectionRepository.save(projection);
+
+    deliveriesById.put(event.deliveryId(), new DeliverySnapshot(
         event.deliveryId(),
         event.orderId(),
         event.riderId(),
-        existing == null ? null : existing.assignedAt(),
+        projection.getAssignedAt(),
         event.completedAt()
     ));
   }
