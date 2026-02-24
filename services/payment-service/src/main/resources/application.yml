@@ -42,3 +42,13 @@ outbox:
 payment:
   auto-initiation:
     default-provider: ${PAYMENT_AUTO_PROVIDER:ECOCASH}
+  callbacks:
+    signature-enabled: ${PAYMENT_CALLBACK_SIGNATURE_ENABLED:false}
+    ecocash-secret: ${PAYMENT_CALLBACK_ECOCASH_SECRET:}
+    onemoney-secret: ${PAYMENT_CALLBACK_ONEMONEY_SECRET:}
+    card-secret: ${PAYMENT_CALLBACK_CARD_SECRET:}
+  reconciliation:
+    enabled: ${PAYMENT_RECONCILIATION_ENABLED:true}
+    fixed-delay-ms: ${PAYMENT_RECONCILIATION_DELAY_MS:60000}
+    stale-after-seconds: ${PAYMENT_RECONCILIATION_STALE_AFTER_SECONDS:900}
+    batch-size: ${PAYMENT_RECONCILIATION_BATCH_SIZE:200}

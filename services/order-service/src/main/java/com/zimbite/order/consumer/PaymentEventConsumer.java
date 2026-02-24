@@ -7,6 +7,7 @@ import com.zimbite.order.model.entity.OrderStatusHistoryEntity;
 import com.zimbite.order.repository.OrderOutboxEventRepository;
 import com.zimbite.order.repository.OrderRepository;
 import com.zimbite.order.repository.OrderStatusHistoryRepository;
+import com.zimbite.order.service.OrderInventoryService;
 import com.zimbite.shared.messaging.Topics;
 import com.zimbite.shared.messaging.contract.DeliveryAssignedEvent;
 import com.zimbite.shared.messaging.contract.DeliveryCompletedEvent;
@@ -29,15 +30,18 @@ public class PaymentEventConsumer {
     private final OrderRepository orderRepository;
     private final OrderOutboxEventRepository outboxEventRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final OrderInventoryService orderInventoryService;
     private final ObjectMapper objectMapper;
 
     public PaymentEventConsumer(OrderRepository orderRepository,
                                 OrderOutboxEventRepository outboxEventRepository,
                                 OrderStatusHistoryRepository orderStatusHistoryRepository,
+                                OrderInventoryService orderInventoryService,
                                 ObjectMapper objectMapper) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
+        this.orderInventoryService = orderInventoryService;
         this.objectMapper = objectMapper;
     }
 
@@ -48,6 +52,7 @@ public class PaymentEventConsumer {
             PaymentSucceededEvent event = objectMapper.readValue(payload, PaymentSucceededEvent.class);
             log.info("Received payment.succeeded: orderId={}", event.orderId());
             updateOrderStatus(event.orderId(), "PAID");
+            orderInventoryService.commitReserved(event.orderId(), "PAYMENT_SUCCEEDED");
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize payment.succeeded event", e);
         }
@@ -60,6 +65,7 @@ public class PaymentEventConsumer {
             PaymentFailedEvent event = objectMapper.readValue(payload, PaymentFailedEvent.class);
             log.info("Received payment.failed: orderId={}, reason={}", event.orderId(), event.reason());
             updateOrderStatus(event.orderId(), "PAYMENT_FAILED");
+            orderInventoryService.releaseReserved(event.orderId(), "PAYMENT_FAILED");
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize payment.failed event", e);
         }

@@ -21,6 +21,9 @@ public class OrderEntity {
   @Column(name = "vendor_id", nullable = false)
   private UUID vendorId;
 
+  @Column(name = "delivery_address_id")
+  private UUID deliveryAddressId;
+
   @Column(nullable = false)
   private String status;
 
@@ -29,6 +32,18 @@ public class OrderEntity {
 
   @Column(nullable = false)
   private String currency;
+
+  @Column(name = "pickup_lat")
+  private BigDecimal pickupLat;
+
+  @Column(name = "pickup_lng")
+  private BigDecimal pickupLng;
+
+  @Column(name = "dropoff_lat")
+  private BigDecimal dropoffLat;
+
+  @Column(name = "dropoff_lng")
+  private BigDecimal dropoffLng;
 
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;
@@ -57,6 +72,14 @@ public class OrderEntity {
     this.vendorId = vendorId;
   }
 
+  public UUID getDeliveryAddressId() {
+    return deliveryAddressId;
+  }
+
+  public void setDeliveryAddressId(UUID deliveryAddressId) {
+    this.deliveryAddressId = deliveryAddressId;
+  }
+
   public String getStatus() {
     return status;
   }
@@ -79,6 +102,38 @@ public class OrderEntity {
 
   public void setCurrency(String currency) {
     this.currency = currency;
+  }
+
+  public BigDecimal getPickupLat() {
+    return pickupLat;
+  }
+
+  public void setPickupLat(BigDecimal pickupLat) {
+    this.pickupLat = pickupLat;
+  }
+
+  public BigDecimal getPickupLng() {
+    return pickupLng;
+  }
+
+  public void setPickupLng(BigDecimal pickupLng) {
+    this.pickupLng = pickupLng;
+  }
+
+  public BigDecimal getDropoffLat() {
+    return dropoffLat;
+  }
+
+  public void setDropoffLat(BigDecimal dropoffLat) {
+    this.dropoffLat = dropoffLat;
+  }
+
+  public BigDecimal getDropoffLng() {
+    return dropoffLng;
+  }
+
+  public void setDropoffLng(BigDecimal dropoffLng) {
+    this.dropoffLng = dropoffLng;
   }
 
   public OffsetDateTime getCreatedAt() {

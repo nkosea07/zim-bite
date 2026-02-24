@@ -2,6 +2,7 @@ package com.zimbite.delivery.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -12,9 +13,12 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zimbite.delivery.model.dto.DeliveryTrackingResponse;
+import com.zimbite.delivery.model.dto.UpdateDeliveryLocationRequest;
 import com.zimbite.delivery.model.entity.DeliveryEntity;
+import com.zimbite.delivery.model.entity.OrderDeliverySnapshotEntity;
 import com.zimbite.delivery.repository.DeliveryLocationRepository;
 import com.zimbite.delivery.repository.DeliveryRepository;
+import com.zimbite.delivery.repository.OrderDeliverySnapshotRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -27,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
 class DeliveryServiceTest {
@@ -40,6 +45,9 @@ class DeliveryServiceTest {
   @Mock
   private KafkaTemplate<String, String> kafkaTemplate;
 
+  @Mock
+  private OrderDeliverySnapshotRepository orderDeliverySnapshotRepository;
+
   private DeliveryService deliveryService;
 
   @BeforeEach
@@ -47,8 +55,14 @@ class DeliveryServiceTest {
     deliveryService = new DeliveryService(
         deliveryRepository,
         locationRepository,
+        orderDeliverySnapshotRepository,
         kafkaTemplate,
-        new ObjectMapper().findAndRegisterModules()
+        new ObjectMapper().findAndRegisterModules(),
+        900L,
+        60L,
+        95.0,
+        12.0,
+        38.0
     );
   }
 
@@ -64,8 +78,15 @@ class DeliveryServiceTest {
     anchor.setDropoffLat(new BigDecimal("-17.830000"));
     anchor.setDropoffLng(new BigDecimal("31.050000"));
     anchor.setAssignedAt(OffsetDateTime.now().minusMinutes(3));
+    OrderDeliverySnapshotEntity snapshot = new OrderDeliverySnapshotEntity();
+    snapshot.setId(orderId);
+    snapshot.setPickupLat(new BigDecimal("-17.812500"));
+    snapshot.setPickupLng(new BigDecimal("31.045600"));
+    snapshot.setDropoffLat(new BigDecimal("-17.890000"));
+    snapshot.setDropoffLng(new BigDecimal("31.132000"));
 
     when(deliveryRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
+    when(orderDeliverySnapshotRepository.findById(orderId)).thenReturn(Optional.of(snapshot));
     when(deliveryRepository.findByStatusInAndAssignedAtAfter(anyCollection(), any(OffsetDateTime.class)))
         .thenReturn(List.of(anchor));
     when(deliveryRepository.countByRiderIdAndStatusIn(riderId, List.of("ASSIGNED", "PICKED_UP"))).thenReturn(1L);
@@ -111,11 +132,48 @@ class DeliveryServiceTest {
     delivery.setUpdatedAt(OffsetDateTime.now());
 
     when(deliveryRepository.findByOrderId(orderId)).thenReturn(Optional.of(delivery));
-    when(locationRepository.findFirstByDeliveryIdOrderByRecordedAtDesc(delivery.getId())).thenReturn(Optional.empty());
+    when(locationRepository.findTop5ByDeliveryIdOrderByRecordedAtDesc(delivery.getId())).thenReturn(List.of());
 
     DeliveryTrackingResponse tracking = deliveryService.getTracking(orderId);
 
     assertNotNull(tracking.estimatedArrivalAt());
     assertTrue(tracking.estimatedArrivalAt().isAfter(tracking.lastUpdatedAt()));
+  }
+
+  @Test
+  void recordLocationRejectsOutlierJump() {
+    UUID deliveryId = UUID.randomUUID();
+    DeliveryEntity delivery = new DeliveryEntity();
+    delivery.setId(deliveryId);
+    delivery.setPickupLat(new BigDecimal("-17.820000"));
+    delivery.setPickupLng(new BigDecimal("31.040000"));
+    delivery.setAssignedAt(OffsetDateTime.now().minusMinutes(3));
+    delivery.setUpdatedAt(OffsetDateTime.now().minusMinutes(1));
+
+    OffsetDateTime previousTime = OffsetDateTime.now().minusSeconds(70);
+    var previous = new com.zimbite.delivery.model.entity.DeliveryLocationEntity();
+    previous.setId(UUID.randomUUID());
+    previous.setDeliveryId(deliveryId);
+    previous.setLatitude(new BigDecimal("-17.820000"));
+    previous.setLongitude(new BigDecimal("31.040000"));
+    previous.setRecordedAt(previousTime);
+    previous.setCreatedAt(previousTime);
+
+    when(deliveryRepository.findById(deliveryId)).thenReturn(Optional.of(delivery));
+    when(locationRepository.findFirstByDeliveryIdOrderByRecordedAtDesc(deliveryId)).thenReturn(Optional.of(previous));
+
+    UpdateDeliveryLocationRequest request = new UpdateDeliveryLocationRequest(
+        -17.100000,
+        32.500000,
+        OffsetDateTime.now()
+    );
+
+    ResponseStatusException error = assertThrows(
+        ResponseStatusException.class,
+        () -> deliveryService.recordLocation(deliveryId, request)
+    );
+
+    assertEquals(422, error.getStatusCode().value());
+    verify(locationRepository, never()).save(any());
   }
 }

@@ -107,6 +107,7 @@ public class OrderController {
     return new PlaceOrderRequest(
         userId,
         request.vendorId(),
+        request.deliveryAddressId(),
         request.currency(),
         request.items()
     );

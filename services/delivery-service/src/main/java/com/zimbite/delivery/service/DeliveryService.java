@@ -7,8 +7,10 @@ import com.zimbite.delivery.model.dto.UpdateDeliveryLocationRequest;
 import com.zimbite.delivery.model.dto.UpdateDeliveryStatusRequest;
 import com.zimbite.delivery.model.entity.DeliveryEntity;
 import com.zimbite.delivery.model.entity.DeliveryLocationEntity;
+import com.zimbite.delivery.model.entity.OrderDeliverySnapshotEntity;
 import com.zimbite.delivery.repository.DeliveryLocationRepository;
 import com.zimbite.delivery.repository.DeliveryRepository;
+import com.zimbite.delivery.repository.OrderDeliverySnapshotRepository;
 import com.zimbite.shared.messaging.Topics;
 import com.zimbite.shared.messaging.contract.DeliveryAssignedEvent;
 import com.zimbite.shared.messaging.contract.DeliveryCompletedEvent;
@@ -16,11 +18,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -35,6 +40,8 @@ public class DeliveryService {
     private static final int BATCH_WINDOW_MINUTES = 12;
     private static final int MAX_ACTIVE_BATCH_PER_RIDER = 2;
     private static final int DEFAULT_ETA_MINUTES = 18;
+    private static final long MIN_ETA_MINUTES = 3;
+    private static final long MAX_ETA_MINUTES = 75;
     private static final List<UUID> RIDER_POOL = List.of(
             UUID.nameUUIDFromBytes("rider-alpha".getBytes(StandardCharsets.UTF_8)),
             UUID.nameUUIDFromBytes("rider-bravo".getBytes(StandardCharsets.UTF_8)),
@@ -46,17 +53,37 @@ public class DeliveryService {
 
     private final DeliveryRepository deliveryRepository;
     private final DeliveryLocationRepository locationRepository;
+    private final OrderDeliverySnapshotRepository orderDeliverySnapshotRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final long maxLocationAgeSeconds;
+    private final long maxFutureSkewSeconds;
+    private final double maxTrackingSpeedKmh;
+    private final double minEtaSpeedKmh;
+    private final double maxEtaSpeedKmh;
 
-    public DeliveryService(DeliveryRepository deliveryRepository,
-                           DeliveryLocationRepository locationRepository,
-                           KafkaTemplate<String, String> kafkaTemplate,
-                           ObjectMapper objectMapper) {
+    public DeliveryService(
+            DeliveryRepository deliveryRepository,
+            DeliveryLocationRepository locationRepository,
+            OrderDeliverySnapshotRepository orderDeliverySnapshotRepository,
+            KafkaTemplate<String, String> kafkaTemplate,
+            ObjectMapper objectMapper,
+            @Value("${delivery.tracking.max-location-age-seconds:900}") long maxLocationAgeSeconds,
+            @Value("${delivery.tracking.max-future-skew-seconds:60}") long maxFutureSkewSeconds,
+            @Value("${delivery.tracking.max-speed-kmh:95.0}") double maxTrackingSpeedKmh,
+            @Value("${delivery.eta.min-speed-kmh:12.0}") double minEtaSpeedKmh,
+            @Value("${delivery.eta.max-speed-kmh:38.0}") double maxEtaSpeedKmh
+    ) {
         this.deliveryRepository = deliveryRepository;
         this.locationRepository = locationRepository;
+        this.orderDeliverySnapshotRepository = orderDeliverySnapshotRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.maxLocationAgeSeconds = maxLocationAgeSeconds;
+        this.maxFutureSkewSeconds = maxFutureSkewSeconds;
+        this.maxTrackingSpeedKmh = maxTrackingSpeedKmh;
+        this.minEtaSpeedKmh = minEtaSpeedKmh;
+        this.maxEtaSpeedKmh = maxEtaSpeedKmh;
     }
 
     @Transactional
@@ -69,19 +96,18 @@ public class DeliveryService {
 
         OffsetDateTime now = OffsetDateTime.now();
         UUID deliveryId = UUID.randomUUID();
-        RoutePoint pickup = routePoint(orderId, true);
-        RoutePoint dropoff = routePoint(orderId, false);
-        AssignmentPlan assignmentPlan = resolveAssignmentPlan(now, pickup);
+        RoutePlan route = resolveRoutePlan(orderId);
+        AssignmentPlan assignmentPlan = resolveAssignmentPlan(now, new RoutePoint(route.pickupLat(), route.pickupLng()));
 
         DeliveryEntity delivery = new DeliveryEntity();
         delivery.setId(deliveryId);
         delivery.setOrderId(orderId);
         delivery.setRiderId(assignmentPlan.riderId());
         delivery.setStatus("ASSIGNED");
-        delivery.setPickupLat(pickup.latitude());
-        delivery.setPickupLng(pickup.longitude());
-        delivery.setDropoffLat(dropoff.latitude());
-        delivery.setDropoffLng(dropoff.longitude());
+        delivery.setPickupLat(route.pickupLat());
+        delivery.setPickupLng(route.pickupLng());
+        delivery.setDropoffLat(route.dropoffLat());
+        delivery.setDropoffLng(route.dropoffLng());
         delivery.setAssignedAt(now);
         delivery.setCreatedAt(now);
         delivery.setUpdatedAt(now);
@@ -107,7 +133,7 @@ public class DeliveryService {
         DeliveryEntity delivery = deliveryRepository.findById(deliveryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery not found"));
 
-        String normalizedStatus = request.status().trim().toUpperCase();
+        String normalizedStatus = request.status().trim().toUpperCase(Locale.ROOT);
         delivery.setStatus(normalizedStatus);
         delivery.setUpdatedAt(OffsetDateTime.now());
 
@@ -126,17 +152,46 @@ public class DeliveryService {
 
     @Transactional
     public void recordLocation(UUID deliveryId, UpdateDeliveryLocationRequest request) {
-        if (!deliveryRepository.existsById(deliveryId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery not found");
+        DeliveryEntity delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery not found"));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime recordedAt = request.recordedAt();
+        validateFreshness(recordedAt, now);
+
+        var lastLocation = locationRepository.findFirstByDeliveryIdOrderByRecordedAtDesc(deliveryId);
+        if (lastLocation.isPresent()) {
+            DeliveryLocationEntity previous = lastLocation.get();
+            if (!recordedAt.isAfter(previous.getRecordedAt())) {
+                log.info("Ignoring out-of-order location update: deliveryId={}, recordedAt={}", deliveryId, recordedAt);
+                return;
+            }
+            validateSegmentSpeed(
+                    previous.getLatitude(),
+                    previous.getLongitude(),
+                    previous.getRecordedAt(),
+                    BigDecimal.valueOf(request.latitude()),
+                    BigDecimal.valueOf(request.longitude()),
+                    recordedAt
+            );
+        } else if (delivery.getPickupLat() != null && delivery.getPickupLng() != null && delivery.getAssignedAt() != null) {
+            validateSegmentSpeed(
+                    delivery.getPickupLat(),
+                    delivery.getPickupLng(),
+                    delivery.getAssignedAt(),
+                    BigDecimal.valueOf(request.latitude()),
+                    BigDecimal.valueOf(request.longitude()),
+                    recordedAt
+            );
         }
 
         DeliveryLocationEntity location = new DeliveryLocationEntity();
         location.setId(UUID.randomUUID());
         location.setDeliveryId(deliveryId);
-        location.setLatitude(BigDecimal.valueOf(request.latitude()));
-        location.setLongitude(BigDecimal.valueOf(request.longitude()));
-        location.setRecordedAt(request.recordedAt());
-        location.setCreatedAt(OffsetDateTime.now());
+        location.setLatitude(BigDecimal.valueOf(request.latitude()).setScale(6, RoundingMode.HALF_UP));
+        location.setLongitude(BigDecimal.valueOf(request.longitude()).setScale(6, RoundingMode.HALF_UP));
+        location.setRecordedAt(recordedAt);
+        location.setCreatedAt(now);
 
         locationRepository.save(location);
     }
@@ -145,18 +200,20 @@ public class DeliveryService {
         DeliveryEntity delivery = deliveryRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No delivery found for order"));
 
+        List<DeliveryLocationEntity> recentLocations = locationRepository.findTop5ByDeliveryIdOrderByRecordedAtDesc(delivery.getId());
+
         BigDecimal lastLat = delivery.getPickupLat();
         BigDecimal lastLng = delivery.getPickupLng();
         OffsetDateTime lastUpdated = delivery.getUpdatedAt();
 
-        var lastLocation = locationRepository.findFirstByDeliveryIdOrderByRecordedAtDesc(delivery.getId());
-        if (lastLocation.isPresent()) {
-            lastLat = lastLocation.get().getLatitude();
-            lastLng = lastLocation.get().getLongitude();
-            lastUpdated = lastLocation.get().getRecordedAt();
+        if (!recentLocations.isEmpty()) {
+            DeliveryLocationEntity latest = recentLocations.get(0);
+            lastLat = latest.getLatitude();
+            lastLng = latest.getLongitude();
+            lastUpdated = latest.getRecordedAt();
         }
 
-        OffsetDateTime eta = estimateArrival(delivery, lastLat, lastLng, lastUpdated);
+        OffsetDateTime eta = estimateArrival(delivery, lastLat, lastLng, lastUpdated, recentLocations);
 
         return new DeliveryTrackingResponse(
                 orderId, delivery.getId(), delivery.getRiderId(),
@@ -170,6 +227,28 @@ public class DeliveryService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize event for topic " + topic, e);
         }
+    }
+
+    private RoutePlan resolveRoutePlan(UUID orderId) {
+        OrderDeliverySnapshotEntity snapshot = orderDeliverySnapshotRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Order delivery coordinates are not available"
+                ));
+
+        if (snapshot.getPickupLat() == null
+                || snapshot.getPickupLng() == null
+                || snapshot.getDropoffLat() == null
+                || snapshot.getDropoffLng() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order delivery coordinates are incomplete");
+        }
+
+        return new RoutePlan(
+                snapshot.getPickupLat(),
+                snapshot.getPickupLng(),
+                snapshot.getDropoffLat(),
+                snapshot.getDropoffLng()
+        );
     }
 
     private AssignmentPlan resolveAssignmentPlan(OffsetDateTime now, RoutePoint pickup) {
@@ -207,26 +286,41 @@ public class DeliveryService {
         return deliveryRepository.countByRiderIdAndStatusIn(riderId, ACTIVE_STATUSES);
     }
 
-    private RoutePoint routePoint(UUID orderId, boolean pickup) {
-        String token = (pickup ? "pickup-" : "dropoff-") + orderId;
-        UUID seed = UUID.nameUUIDFromBytes(token.getBytes(StandardCharsets.UTF_8));
-        BigDecimal latitude = coordinate(seed.getMostSignificantBits(), -17.8292, pickup ? 0.06 : 0.10);
-        BigDecimal longitude = coordinate(seed.getLeastSignificantBits(), 31.0522, pickup ? 0.06 : 0.10);
-        return new RoutePoint(latitude, longitude);
+    private void validateFreshness(OffsetDateTime recordedAt, OffsetDateTime now) {
+        if (recordedAt.isBefore(now.minusSeconds(maxLocationAgeSeconds))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Location update is too old");
+        }
+        if (recordedAt.isAfter(now.plusSeconds(maxFutureSkewSeconds))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Location update timestamp is in the future");
+        }
     }
 
-    private BigDecimal coordinate(long seed, double center, double spread) {
-        long positiveSeed = seed == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(seed);
-        double normalized = (positiveSeed % 10000) / 10000.0;
-        double value = center + ((normalized - 0.5) * spread);
-        return BigDecimal.valueOf(value).setScale(6, RoundingMode.HALF_UP);
+    private void validateSegmentSpeed(
+            BigDecimal fromLat,
+            BigDecimal fromLng,
+            OffsetDateTime fromTime,
+            BigDecimal toLat,
+            BigDecimal toLng,
+            OffsetDateTime toTime
+    ) {
+        long elapsedSeconds = ChronoUnit.SECONDS.between(fromTime, toTime);
+        if (elapsedSeconds <= 0) {
+            return;
+        }
+
+        double distanceKm = distanceKm(fromLat, fromLng, toLat, toLng);
+        double speedKmh = distanceKm / (elapsedSeconds / 3600.0);
+        if (speedKmh > maxTrackingSpeedKmh) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Location update rejected as outlier");
+        }
     }
 
     private OffsetDateTime estimateArrival(
             DeliveryEntity delivery,
             BigDecimal lastLat,
             BigDecimal lastLng,
-            OffsetDateTime lastUpdated
+            OffsetDateTime lastUpdated,
+            List<DeliveryLocationEntity> recentLocations
     ) {
         if ("DELIVERED".equalsIgnoreCase(delivery.getStatus())) {
             return delivery.getDeliveredAt() == null ? lastUpdated : delivery.getDeliveredAt();
@@ -242,12 +336,82 @@ public class DeliveryService {
             return lastUpdated.plusMinutes(DEFAULT_ETA_MINUTES);
         }
 
-        double distanceKm = distanceKm(sourceLat, sourceLng, delivery.getDropoffLat(), delivery.getDropoffLng());
-        double speedKmh = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? 28.0 : 18.0;
-        long baseMinutes = (long) Math.ceil((distanceKm / speedKmh) * 60.0);
-        long bufferMinutes = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? 4L : 8L;
-        long etaMinutes = Math.max(5L, Math.min(45L, baseMinutes + bufferMinutes));
+        double remainingKm = remainingDistanceKm(delivery, sourceLat, sourceLng);
+        if (remainingKm <= 0.05) {
+            return lastUpdated.plusMinutes(MIN_ETA_MINUTES);
+        }
+
+        double speedKmh = estimateEffectiveSpeedKmh(delivery, recentLocations, lastUpdated);
+        long baseMinutes = (long) Math.ceil((remainingKm / speedKmh) * 60.0);
+        long bufferMinutes = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? 2L : 7L;
+        long etaMinutes = clamp(MIN_ETA_MINUTES, MAX_ETA_MINUTES, baseMinutes + bufferMinutes);
         return lastUpdated.plusMinutes(etaMinutes);
+    }
+
+    private double remainingDistanceKm(DeliveryEntity delivery, BigDecimal sourceLat, BigDecimal sourceLng) {
+        double toDropoff = distanceKm(sourceLat, sourceLng, delivery.getDropoffLat(), delivery.getDropoffLng());
+        if ("PICKED_UP".equalsIgnoreCase(delivery.getStatus())) {
+            return toDropoff;
+        }
+
+        if (delivery.getPickupLat() == null || delivery.getPickupLng() == null) {
+            return toDropoff;
+        }
+
+        double toPickup = distanceKm(sourceLat, sourceLng, delivery.getPickupLat(), delivery.getPickupLng());
+        double pickupToDropoff = distanceKm(
+                delivery.getPickupLat(),
+                delivery.getPickupLng(),
+                delivery.getDropoffLat(),
+                delivery.getDropoffLng()
+        );
+        return toPickup + pickupToDropoff;
+    }
+
+    private double estimateEffectiveSpeedKmh(
+            DeliveryEntity delivery,
+            List<DeliveryLocationEntity> recentLocations,
+            OffsetDateTime lastUpdated
+    ) {
+        double fallback = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? 26.0 : 18.0;
+
+        double total = 0.0;
+        int count = 0;
+        for (int i = 0; i + 1 < recentLocations.size(); i++) {
+            DeliveryLocationEntity newer = recentLocations.get(i);
+            DeliveryLocationEntity older = recentLocations.get(i + 1);
+            long seconds = ChronoUnit.SECONDS.between(older.getRecordedAt(), newer.getRecordedAt());
+            if (seconds <= 0) {
+                continue;
+            }
+            double distanceKm = distanceKm(
+                    older.getLatitude(),
+                    older.getLongitude(),
+                    newer.getLatitude(),
+                    newer.getLongitude()
+            );
+            double speedKmh = distanceKm / (seconds / 3600.0);
+            if (speedKmh <= 0.0 || speedKmh > maxTrackingSpeedKmh) {
+                continue;
+            }
+            total += speedKmh;
+            count++;
+        }
+
+        double observed = count == 0 ? fallback : total / count;
+        double trafficAdjusted = observed * trafficFactor(lastUpdated);
+        return clamp(minEtaSpeedKmh, maxEtaSpeedKmh, trafficAdjusted);
+    }
+
+    private double trafficFactor(OffsetDateTime at) {
+        int hour = at.getHour();
+        if (hour >= 6 && hour <= 9) {
+            return 0.82;
+        }
+        if (hour >= 16 && hour <= 18) {
+            return 0.9;
+        }
+        return 1.0;
     }
 
     private double distanceKm(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {
@@ -265,8 +429,19 @@ public class DeliveryService {
         return earthRadiusKm * c;
     }
 
+    private long clamp(long min, long max, long value) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private double clamp(double min, double max, double value) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private double roundKm(double value) {
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private record RoutePlan(BigDecimal pickupLat, BigDecimal pickupLng, BigDecimal dropoffLat, BigDecimal dropoffLng) {
     }
 
     private record RoutePoint(BigDecimal latitude, BigDecimal longitude) {

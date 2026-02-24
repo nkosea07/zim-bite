@@ -45,8 +45,18 @@ public class PaymentController {
   }
 
   @PostMapping("/callbacks/{provider}/{paymentId}/success")
-  public ResponseEntity<PaymentResponse> callbackSuccess(@PathVariable String provider, @PathVariable UUID paymentId) {
-    PaymentResponse response = paymentService.markSucceeded(paymentId);
+  public ResponseEntity<PaymentResponse> callbackSuccess(
+      @PathVariable String provider,
+      @PathVariable UUID paymentId,
+      @RequestHeader(name = "X-Callback-Id", required = false) String callbackId,
+      @RequestHeader(name = "X-Callback-Signature", required = false) String callbackSignature
+  ) {
+    PaymentResponse response = paymentService.markSucceededFromCallback(
+        paymentId,
+        provider,
+        callbackId,
+        callbackSignature
+    );
     if (response == null) {
       return ResponseEntity.notFound().build();
     }
@@ -57,9 +67,17 @@ public class PaymentController {
   public ResponseEntity<PaymentResponse> callbackFailure(
       @PathVariable String provider,
       @PathVariable UUID paymentId,
+      @RequestHeader(name = "X-Callback-Id", required = false) String callbackId,
+      @RequestHeader(name = "X-Callback-Signature", required = false) String callbackSignature,
       @RequestParam(name = "reason", required = false) String reason
   ) {
-    PaymentResponse response = paymentService.markFailed(paymentId, reason);
+    PaymentResponse response = paymentService.markFailedFromCallback(
+        paymentId,
+        provider,
+        reason,
+        callbackId,
+        callbackSignature
+    );
     if (response == null) {
       return ResponseEntity.notFound().build();
     }

@@ -45,7 +45,7 @@ paths:
           description: Status updated
   /{deliveryId}/location:
     post:
-      summary: Publish rider location update
+      summary: Publish rider location update (freshness + outlier validated)
       parameters:
         - in: path
           name: deliveryId
@@ -56,6 +56,8 @@ paths:
       responses:
         '202':
           description: Location accepted
+        '422':
+          description: Location rejected due to stale/future/outlier telemetry
   /orders/{orderId}/tracking:
     get:
       summary: Get current tracking details for order

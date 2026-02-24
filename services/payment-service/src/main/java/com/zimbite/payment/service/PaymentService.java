@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zimbite.payment.model.dto.InitiatePaymentRequest;
 import com.zimbite.payment.model.dto.PaymentResponse;
+import com.zimbite.payment.model.entity.PaymentCallbackEntity;
 import com.zimbite.payment.model.entity.PaymentEntity;
 import com.zimbite.payment.model.entity.PaymentOutboxEventEntity;
+import com.zimbite.payment.repository.PaymentCallbackRepository;
 import com.zimbite.payment.repository.PaymentOutboxEventRepository;
 import com.zimbite.payment.repository.PaymentRepository;
 import com.zimbite.shared.messaging.Topics;
@@ -15,10 +17,13 @@ import com.zimbite.shared.messaging.contract.PaymentRefundedEvent;
 import com.zimbite.shared.messaging.contract.PaymentSucceededEvent;
 import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class PaymentService {
@@ -26,16 +31,22 @@ public class PaymentService {
   private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
   private final PaymentRepository paymentRepository;
+  private final PaymentCallbackRepository callbackRepository;
   private final PaymentOutboxEventRepository outboxEventRepository;
+  private final CallbackSignatureVerifier callbackSignatureVerifier;
   private final ObjectMapper objectMapper;
 
   public PaymentService(
       PaymentRepository paymentRepository,
+      PaymentCallbackRepository callbackRepository,
       PaymentOutboxEventRepository outboxEventRepository,
+      CallbackSignatureVerifier callbackSignatureVerifier,
       ObjectMapper objectMapper
   ) {
     this.paymentRepository = paymentRepository;
+    this.callbackRepository = callbackRepository;
     this.outboxEventRepository = outboxEventRepository;
+    this.callbackSignatureVerifier = callbackSignatureVerifier;
     this.objectMapper = objectMapper;
   }
 
@@ -113,6 +124,16 @@ public class PaymentService {
   }
 
   @Transactional
+  public PaymentResponse markSucceededFromCallback(
+      UUID paymentId,
+      String provider,
+      String callbackId,
+      String callbackSignature
+  ) {
+    return markFromCallback(paymentId, provider, callbackId, callbackSignature, "SUCCESS", null);
+  }
+
+  @Transactional
   public PaymentResponse markFailed(UUID paymentId, String reason) {
     PaymentEntity payment = paymentRepository.findById(paymentId).orElse(null);
     if (payment == null) {
@@ -142,6 +163,17 @@ public class PaymentService {
     saveOutbox(saved.getId(), Topics.PAYMENT_FAILED, event);
 
     return toResponse(saved);
+  }
+
+  @Transactional
+  public PaymentResponse markFailedFromCallback(
+      UUID paymentId,
+      String provider,
+      String reason,
+      String callbackId,
+      String callbackSignature
+  ) {
+    return markFromCallback(paymentId, provider, callbackId, callbackSignature, "FAILURE", reason);
   }
 
   @Transactional
@@ -177,6 +209,51 @@ public class PaymentService {
     return toResponse(saved);
   }
 
+  private PaymentResponse markFromCallback(
+      UUID paymentId,
+      String provider,
+      String callbackId,
+      String callbackSignature,
+      String outcome,
+      String reason
+  ) {
+    String normalizedProvider = normalizeProvider(provider);
+    String normalizedCallbackId = normalizeCallbackId(callbackId, paymentId, outcome);
+
+    PaymentCallbackEntity existingCallback = callbackRepository
+        .findByProviderAndCallbackId(normalizedProvider, normalizedCallbackId)
+        .orElse(null);
+    if (existingCallback != null) {
+      log.info("Ignoring duplicate callback provider={}, callbackId={}", normalizedProvider, normalizedCallbackId);
+      return paymentRepository.findById(paymentId).map(this::toResponse).orElse(null);
+    }
+
+    boolean signatureValid = callbackSignatureVerifier.verify(
+        normalizedProvider,
+        paymentId,
+        outcome,
+        callbackSignature
+    );
+    saveCallback(paymentId, normalizedProvider, normalizedCallbackId, outcome, signatureValid, reason);
+
+    if (!signatureValid) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid callback signature");
+    }
+
+    PaymentEntity payment = paymentRepository.findById(paymentId).orElse(null);
+    if (payment == null) {
+      return null;
+    }
+    if (!normalizedProvider.equals(payment.getProvider())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Callback provider mismatch");
+    }
+
+    if ("SUCCESS".equals(outcome)) {
+      return markSucceeded(paymentId);
+    }
+    return markFailed(paymentId, reason);
+  }
+
   private PaymentResponse toResponse(PaymentEntity payment) {
     return new PaymentResponse(
         payment.getId(),
@@ -186,6 +263,26 @@ public class PaymentService {
         payment.getAmount(),
         payment.getCurrency()
     );
+  }
+
+  private void saveCallback(
+      UUID paymentId,
+      String provider,
+      String callbackId,
+      String outcome,
+      boolean signatureValid,
+      String reason
+  ) {
+    PaymentCallbackEntity callback = new PaymentCallbackEntity();
+    callback.setId(UUID.randomUUID());
+    callback.setPaymentId(paymentId);
+    callback.setProvider(provider);
+    callback.setCallbackId(callbackId);
+    callback.setOutcome(outcome);
+    callback.setSignatureValid(signatureValid);
+    callback.setReason(reason);
+    callback.setCreatedAt(OffsetDateTime.now());
+    callbackRepository.save(callback);
   }
 
   private void saveOutbox(UUID aggregateId, String eventType, Object payload) {
@@ -229,5 +326,23 @@ public class PaymentService {
     }
     String trimmed = reason.trim();
     return trimmed.isEmpty() ? "merchant_requested" : trimmed;
+  }
+
+  private String normalizeProvider(String provider) {
+    if (provider == null || provider.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "provider is required");
+    }
+    String normalized = provider.trim().toUpperCase(Locale.ROOT);
+    return switch (normalized) {
+      case "ECOCASH", "ONEMONEY", "CARD" -> normalized;
+      default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported provider");
+    };
+  }
+
+  private String normalizeCallbackId(String callbackId, UUID paymentId, String outcome) {
+    if (callbackId == null || callbackId.isBlank()) {
+      return ("auto:" + paymentId + ":" + outcome).toLowerCase(Locale.ROOT);
+    }
+    return callbackId.trim();
   }
 }

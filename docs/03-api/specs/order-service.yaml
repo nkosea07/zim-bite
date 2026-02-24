@@ -77,27 +77,24 @@ components:
   schemas:
     PlaceOrderRequest:
       type: object
-      required: [vendor_id, items, delivery_address_id, payment_method]
+      required: [vendorId, deliveryAddressId, currency, items]
       properties:
-        vendor_id:
+        vendorId:
           type: string
           format: uuid
-        delivery_address_id:
+        deliveryAddressId:
           type: string
           format: uuid
-        payment_method:
+        currency:
           type: string
-          enum: [ECOCASH, ONEMONEY, CARD, CASH]
-        scheduled_for:
-          type: string
-          format: date-time
+          enum: [USD, ZWL]
         items:
           type: array
           items:
             type: object
-            required: [menu_item_id, quantity]
+            required: [menuItemId, quantity]
             properties:
-              menu_item_id:
+              menuItemId:
                 type: string
                 format: uuid
               quantity:

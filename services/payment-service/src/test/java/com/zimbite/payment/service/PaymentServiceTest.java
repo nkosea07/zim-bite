@@ -2,6 +2,7 @@ package com.zimbite.payment.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -10,8 +11,10 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zimbite.payment.model.dto.InitiatePaymentRequest;
 import com.zimbite.payment.model.dto.PaymentResponse;
+import com.zimbite.payment.model.entity.PaymentCallbackEntity;
 import com.zimbite.payment.model.entity.PaymentEntity;
 import com.zimbite.payment.model.entity.PaymentOutboxEventEntity;
+import com.zimbite.payment.repository.PaymentCallbackRepository;
 import com.zimbite.payment.repository.PaymentOutboxEventRepository;
 import com.zimbite.payment.repository.PaymentRepository;
 import com.zimbite.shared.messaging.Topics;
@@ -25,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceTest {
@@ -35,13 +39,21 @@ class PaymentServiceTest {
   @Mock
   private PaymentOutboxEventRepository outboxEventRepository;
 
+  @Mock
+  private PaymentCallbackRepository callbackRepository;
+
+  @Mock
+  private CallbackSignatureVerifier callbackSignatureVerifier;
+
   private PaymentService paymentService;
 
   @BeforeEach
   void setUp() {
     paymentService = new PaymentService(
         paymentRepository,
+        callbackRepository,
         outboxEventRepository,
+        callbackSignatureVerifier,
         new ObjectMapper().findAndRegisterModules()
     );
   }
@@ -137,6 +149,46 @@ class PaymentServiceTest {
     verify(outboxEventRepository).save(outboxCaptor.capture());
     assertEquals(Topics.PAYMENT_FAILED, outboxCaptor.getValue().getEventType());
     assertTrue(outboxCaptor.getValue().getPayload().contains("declined"));
+  }
+
+  @Test
+  void callbackSuccessRejectsMismatchedProvider() {
+    UUID paymentId = UUID.randomUUID();
+    PaymentEntity existing = payment(
+        paymentId,
+        UUID.randomUUID(),
+        "ECOCASH",
+        "PENDING",
+        new BigDecimal("20.00"),
+        "USD"
+    );
+    when(callbackRepository.findByProviderAndCallbackId("CARD", "cb-1")).thenReturn(Optional.empty());
+    when(callbackSignatureVerifier.verify("CARD", paymentId, "SUCCESS", "sig")).thenReturn(true);
+    when(callbackRepository.save(any(PaymentCallbackEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentRepository.findById(paymentId)).thenReturn(Optional.of(existing));
+
+    assertThrows(ResponseStatusException.class, () -> paymentService.markSucceededFromCallback(
+        paymentId,
+        "card",
+        "cb-1",
+        "sig"
+    ));
+  }
+
+  @Test
+  void callbackFailureRejectsInvalidSignature() {
+    UUID paymentId = UUID.randomUUID();
+    when(callbackRepository.findByProviderAndCallbackId("ECOCASH", "cb-2")).thenReturn(Optional.empty());
+    when(callbackSignatureVerifier.verify("ECOCASH", paymentId, "FAILURE", "bad-sig")).thenReturn(false);
+    when(callbackRepository.save(any(PaymentCallbackEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    assertThrows(ResponseStatusException.class, () -> paymentService.markFailedFromCallback(
+        paymentId,
+        "ecocash",
+        "declined",
+        "cb-2",
+        "bad-sig"
+    ));
   }
 
   private PaymentEntity payment(

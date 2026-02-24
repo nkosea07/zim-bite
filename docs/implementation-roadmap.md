@@ -40,7 +40,7 @@ Close the remaining implementation gaps for medium-to-complex production workflo
 
 ## Sprint 1 Scope
 
-Status: In progress
+Status: Completed (2026-02-24)
 
 ### Deliverables
 
@@ -62,3 +62,23 @@ Status: In progress
 ## Sprint 1 Execution Notes
 
 Implementation details and changed files are tracked in the corresponding service modules and test suites.
+
+## Sprint 2 Scope
+
+Status: Completed (2026-02-24)
+
+### Deliverables
+
+1. Replace fixed order pricing with menu-backed price snapshots.
+2. Add inventory reservation/release semantics linked to order and payment status transitions.
+3. Harden payment callbacks with provider verification, callback dedupe/audit, and stale pending reconciliation.
+
+## Sprint 3 Scope
+
+Status: In progress (2026-02-24)
+
+### Deliverables
+
+1. Replace synthetic pickup/dropoff coordinates with order snapshot coordinates derived from vendor and delivery address data.
+2. Enforce tracking ingestion freshness/outlier validation before persisting rider location pings.
+3. Use route-aware ETA estimation with telemetry-informed speed envelopes.

@@ -42,6 +42,16 @@ paths:
           schema:
             type: string
             format: uuid
+        - in: header
+          name: X-Callback-Id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: X-Callback-Signature
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: Payment marked successful
@@ -61,6 +71,16 @@ paths:
           schema:
             type: string
             format: uuid
+        - in: header
+          name: X-Callback-Id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: X-Callback-Signature
+          required: false
+          schema:
+            type: string
         - in: query
           name: reason
           required: false

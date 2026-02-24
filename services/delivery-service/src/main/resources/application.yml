@@ -32,3 +32,12 @@ management:
     health:
       probes:
         enabled: true
+
+delivery:
+  tracking:
+    max-location-age-seconds: ${DELIVERY_TRACKING_MAX_LOCATION_AGE_SECONDS:900}
+    max-future-skew-seconds: ${DELIVERY_TRACKING_MAX_FUTURE_SKEW_SECONDS:60}
+    max-speed-kmh: ${DELIVERY_TRACKING_MAX_SPEED_KMH:95}
+  eta:
+    min-speed-kmh: ${DELIVERY_ETA_MIN_SPEED_KMH:12}
+    max-speed-kmh: ${DELIVERY_ETA_MAX_SPEED_KMH:38}
