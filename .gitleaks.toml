@@ -1,0 +1,10 @@
+title = "zimbite-gitleaks-config"
+
+[allowlist]
+description = "Allow non-sensitive development placeholders and documentation samples."
+regexes = [
+  '''zimbite-dev-secret-key-min-32-bytes!!''',
+  '''zimbite-old-signing-secret-minimum-32-bytes!!''',
+  '''zimbite-new-signing-secret-minimum-32-bytes!!''',
+  '''eyJhbGciOi\.\.\.'''
+]

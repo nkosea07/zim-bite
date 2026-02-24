@@ -25,3 +25,10 @@
 | Delivery assignment lag | > 3 minutes for 5 minutes |
 | Kafka consumer lag | > 10000 records for 10 minutes |
 | Error rate | > 3% for 5 minutes |
+
+## Provisioned Artifacts
+
+- Prometheus alert rules:
+  - `ops/monitoring/prometheus/alerts/zimbite-stage3-alerts.yml`
+- Grafana dashboard:
+  - `ops/monitoring/grafana/dashboards/zimbite-stage3-operations.json`

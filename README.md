@@ -22,7 +22,9 @@ On-demand breakfast delivery platform for Zimbabwe. Hot breakfast delivered betw
 ## Current Stage
 
 - Stage 1 complete: architecture and platform documentation.
-- Stage 2 in progress: monorepo bootstrap with Spring Boot service skeletons, shared libraries, gateway routing, Docker compose, and React frontend scaffold.
+- Stage 2 complete: service implementations, domain migrations, event workflows, frontend feature routes, and CI quality gates.
+- Stage 3 implementation complete: release hardening gates, load/security baselines, and operational runbooks are in repo.
+- Stage 3 rollout in progress: execute staging/production rehearsals and validate live SLO outcomes.
 
 ## Quick Start (Bootstrap)
 
@@ -62,6 +64,11 @@ On-demand breakfast delivery platform for Zimbabwe. Hot breakfast delivered betw
 - [Monitoring](docs/05-deployment/monitoring-observability.md)
 - [Scaling Strategy](docs/05-deployment/scaling-strategy.md)
 - [Outbox Rollout](docs/05-deployment/outbox-rollout.md)
+- [Load Testing Baseline](docs/05-deployment/load-testing-baseline.md)
+- [JWT Key Rotation Rehearsal](docs/05-deployment/jwt-key-rotation-rehearsal.md)
+- [Operations Alerting Provisioning](docs/05-deployment/operations-alerting-provisioning.md)
+- [Service Rollback and Incident Runbook](docs/05-deployment/service-rollback-and-incident-runbook.md)
+- [Stage 3 Execution Plan](docs/05-deployment/stage-3-execution-plan.md)
 - [Implementation TODO Tracker](docs/implementation-todo.md)
 
 ## Payments

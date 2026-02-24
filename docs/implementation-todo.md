@@ -47,3 +47,12 @@ Last updated: 2026-02-24
 - [x] Add test suites per service (controller + service + integration with Testcontainers where relevant).
 - [x] Fix Mockito/JDK 23 test runtime issue (currently blocks `mvn test` in this environment).
 - [x] Add CI gates for compile, test, and OpenAPI drift checks.
+
+## 7) Stage 3: Release Hardening and Operations
+
+- [x] Add end-to-end smoke tests for primary flows (`auth -> order -> payment -> delivery -> notification`) in CI.
+- [x] Add contract test gate for gateway routes vs OpenAPI specs and publish drift report artifact.
+- [x] Baseline load tests for checkout and tracking APIs with target SLOs (p95 latency, error rate, throughput).
+- [x] Complete security hardening checklist (secret scanning, dependency audit, JWT key rotation rehearsal).
+- [x] Provision production dashboards and alerts for Kafka lag, outbox backlog age, API latency, and DB saturation.
+- [x] Add deployment runbook with rollback drills and incident response playbook for each critical service.
