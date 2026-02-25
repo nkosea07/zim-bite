@@ -28,6 +28,8 @@ import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -78,6 +80,7 @@ public class OrderService {
   public OrderResponse placeOrder(PlaceOrderRequest request) {
     UUID orderId = UUID.randomUUID();
     String currency = normalizeCurrency(request.currency());
+    OffsetDateTime scheduledFor = validateScheduledFor(request.scheduledFor());
     RouteCoordinates route = resolveRouteCoordinates(
         request.userId(),
         request.vendorId(),
@@ -108,6 +111,7 @@ public class OrderService {
     order.setPickupLng(route.pickupLng());
     order.setDropoffLat(route.dropoffLat());
     order.setDropoffLng(route.dropoffLng());
+    order.setScheduledFor(scheduledFor);
     order.setCreatedAt(OffsetDateTime.now());
     orderRepository.save(order);
 
@@ -200,7 +204,7 @@ public class OrderService {
   }
 
   private OrderResponse toOrderResponse(OrderEntity order) {
-    return new OrderResponse(order.getId(), order.getStatus(), order.getTotalAmount(), order.getCurrency());
+    return new OrderResponse(order.getId(), order.getStatus(), order.getTotalAmount(), order.getCurrency(), order.getScheduledFor());
   }
 
   private void saveOutbox(UUID aggregateId, String eventType, Object payload) {
@@ -301,6 +305,30 @@ public class OrderService {
 
   private BigDecimal scaleCoordinate(BigDecimal value) {
     return value.setScale(6, RoundingMode.HALF_UP);
+  }
+
+  // Dial-A-Breakfast delivery window: 05:00–10:00 Africa/Harare (UTC+2)
+  private static final ZoneId HARARE_ZONE = ZoneId.of("Africa/Harare");
+  private static final int WINDOW_OPEN_HOUR = 5;
+  private static final int WINDOW_CLOSE_HOUR = 10;
+
+  private OffsetDateTime validateScheduledFor(OffsetDateTime scheduledFor) {
+    if (scheduledFor == null) {
+      return null;
+    }
+    OffsetDateTime now = OffsetDateTime.now();
+    if (!scheduledFor.isAfter(now)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "scheduledFor must be in the future");
+    }
+    ZonedDateTime local = scheduledFor.atZoneSameInstant(HARARE_ZONE);
+    int hour = local.getHour();
+    if (hour < WINDOW_OPEN_HOUR || hour >= WINDOW_CLOSE_HOUR) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "scheduledFor must be within the 05:00–10:00 Africa/Harare delivery window"
+      );
+    }
+    return scheduledFor;
   }
 
   private record RouteCoordinates(

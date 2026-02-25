@@ -109,7 +109,8 @@ public class OrderController {
         request.vendorId(),
         request.deliveryAddressId(),
         request.currency(),
-        request.items()
+        request.items(),
+        request.scheduledFor()
     );
   }
 }

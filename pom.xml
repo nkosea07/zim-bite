@@ -24,6 +24,7 @@
     <module>services/delivery-service</module>
     <module>services/notification-service</module>
     <module>services/analytics-service</module>
+    <module>services/subscription-service</module>
   </modules>
 
   <properties>

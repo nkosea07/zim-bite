@@ -61,5 +61,13 @@ Last updated: 2026-02-24
 
 - [x] Add go/no-go readiness rehearsal runner with report artifact output.
 - [x] Add automated canary drill runner (`10% -> 50% -> 100%`) with SLO evidence artifacts.
-- [ ] Execute readiness rehearsal in staging and attach report evidence.
-- [ ] Execute canary rollout drill (`10% -> 50% -> 100%`) and capture live SLO observations.
+- [ ] Execute readiness rehearsal in staging and attach report evidence. See: `artifacts/stage3-readiness-logs/STAGING-EXECUTION-GUIDE.md`
+- [ ] Execute canary rollout drill (`10% -> 50% -> 100%`) and capture live SLO observations. See: `artifacts/stage3-readiness-logs/STAGING-EXECUTION-GUIDE.md`
+
+## 9) Critical Gap Closures (added 2026-02-24)
+
+- [x] Subscription/meal plan service — new `subscription-service` on port 8091 with DAILY/WEEKLY/MONTHLY plans, Kafka events (`subscription.created`, `subscription.paused`, `subscription.cancelled`, `subscription.delivery.due`), scheduled dispatcher, and full REST API (`POST /api/v1/subscriptions`, pause/resume/cancel, delivery history).
+- [x] Order scheduling with delivery window enforcement — `scheduledFor` field added to orders; validates 05:00–10:00 Africa/Harare window; migration `V6__order_scheduling.sql`.
+- [x] Reviews and ratings — `reviews` table in `vendor_mgmt` schema; `ReviewService` auto-recalculates `rating_avg` on create/delete; endpoints `POST /api/v1/vendors/{vendorId}/reviews`, `GET /api/v1/vendors/{vendorId}/reviews`, `GET /api/v1/users/me/reviews`, `DELETE /api/v1/reviews/{reviewId}`.
+- [x] PWA / offline mode — service worker (`public/sw.js`) with cache-first for static assets, stale-while-revalidate for vendor/menu APIs, network-first with offline fallback for all other API calls; web app manifest (`public/manifest.webmanifest`); connectivity helpers in `src/pwa.ts`.
+- [ ] Android mobile app — project scaffolding not yet started; required by product spec (Android-first).

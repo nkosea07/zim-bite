@@ -3,6 +3,7 @@ package com.zimbite.order.model.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,6 +12,7 @@ public record PlaceOrderRequest(
     @NotNull UUID vendorId,
     @NotNull UUID deliveryAddressId,
     @NotBlank String currency,
-    @NotEmpty List<OrderItemRequest> items
+    @NotEmpty List<OrderItemRequest> items,
+    OffsetDateTime scheduledFor
 ) {
 }

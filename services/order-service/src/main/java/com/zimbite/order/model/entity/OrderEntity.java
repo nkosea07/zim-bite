@@ -45,6 +45,9 @@ public class OrderEntity {
   @Column(name = "dropoff_lng")
   private BigDecimal dropoffLng;
 
+  @Column(name = "scheduled_for")
+  private OffsetDateTime scheduledFor;
+
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;
 
@@ -134,6 +137,14 @@ public class OrderEntity {
 
   public void setDropoffLng(BigDecimal dropoffLng) {
     this.dropoffLng = dropoffLng;
+  }
+
+  public OffsetDateTime getScheduledFor() {
+    return scheduledFor;
+  }
+
+  public void setScheduledFor(OffsetDateTime scheduledFor) {
+    this.scheduledFor = scheduledFor;
   }
 
   public OffsetDateTime getCreatedAt() {

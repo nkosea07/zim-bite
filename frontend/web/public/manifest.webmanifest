@@ -1,0 +1,37 @@
+{
+  "name": "Dial-A-Breakfast Zimbabwe",
+  "short_name": "ZimBite",
+  "description": "On-demand breakfast delivery — order between 5AM and 10AM",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#e85d04",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Browse Vendors",
+      "url": "/vendors",
+      "description": "Find breakfast vendors near you"
+    },
+    {
+      "name": "Build Meal",
+      "url": "/meal-builder",
+      "description": "Customise your breakfast"
+    }
+  ]
+}
