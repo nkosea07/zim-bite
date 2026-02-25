@@ -3,10 +3,12 @@ package com.zimbite.gateway.config;
 import com.zimbite.shared.security.JwtProperties;
 import com.zimbite.shared.security.JwtValidator;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@EnableConfigurationProperties(GatewayRateLimitProperties.class)
 public class JwtConfig {
 
     @Bean

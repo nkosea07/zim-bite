@@ -3,6 +3,26 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowed-headers:
+              - Authorization
+              - Content-Type
+              - X-Trace-ID
+              - X-Idempotency-Key
+            exposed-headers:
+              - X-Trace-ID
+            allow-credentials: true
+            max-age: 3600
       routes:
         - id: auth-service
           uri: http://localhost:8081
@@ -44,6 +64,10 @@ spring:
           uri: http://localhost:8090
           predicates:
             - Path=/api/v1/analytics/**
+        - id: subscription-service
+          uri: http://localhost:8091
+          predicates:
+            - Path=/api/v1/subscriptions/**
 server:
   port: 8080
   compression:
@@ -57,6 +81,26 @@ management:
         include: health,info
 
 jwt:
-  secret: ${JWT_SECRET:zimbite-dev-secret-key-min-32-bytes!!}
+  secret: ${JWT_SECRET}
   access-ttl-seconds: ${JWT_ACCESS_TTL:900}
   refresh-ttl-seconds: ${JWT_REFRESH_TTL:2592000}
+
+gateway:
+  rate-limit:
+    rules:
+      - method: POST
+        pattern: /api/v1/auth/**
+        limit: ${GATEWAY_RATE_AUTH_LIMIT:5}
+        window-seconds: ${GATEWAY_RATE_AUTH_WINDOW_SECONDS:60}
+      - method: POST
+        pattern: /api/v1/orders
+        limit: ${GATEWAY_RATE_ORDERS_LIMIT:20}
+        window-seconds: ${GATEWAY_RATE_ORDERS_WINDOW_SECONDS:3600}
+      - method: POST
+        pattern: /api/v1/payments/initiate
+        limit: ${GATEWAY_RATE_PAYMENTS_LIMIT:10}
+        window-seconds: ${GATEWAY_RATE_PAYMENTS_WINDOW_SECONDS:3600}
+      - method: ~
+        pattern: /api/v1/**
+        limit: ${GATEWAY_RATE_DEFAULT_LIMIT:120}
+        window-seconds: ${GATEWAY_RATE_DEFAULT_WINDOW_SECONDS:60}

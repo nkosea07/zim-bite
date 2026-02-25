@@ -58,11 +58,26 @@ class DeliveryServiceTest {
         orderDeliverySnapshotRepository,
         kafkaTemplate,
         new ObjectMapper().findAndRegisterModules(),
-        900L,
-        60L,
-        95.0,
-        12.0,
-        38.0
+        900L,       // maxLocationAgeSeconds
+        60L,        // maxFutureSkewSeconds
+        95.0,       // maxTrackingSpeedKmh
+        12.0,       // minEtaSpeedKmh
+        38.0,       // maxEtaSpeedKmh
+        18,         // defaultEtaMinutes
+        3L,         // minEtaMinutes
+        75L,        // maxEtaMinutes
+        26.0,       // pickedUpFallbackSpeedKmh
+        18.0,       // assignedFallbackSpeedKmh
+        2L,         // pickedUpBufferMinutes
+        7L,         // assignedBufferMinutes
+        12,         // batchWindowMinutes
+        2,          // maxActivePerRider
+        6,          // morningRushStartHour
+        9,          // morningRushEndHour
+        0.82,       // morningRushFactor
+        16,         // eveningRushStartHour
+        18,         // eveningRushEndHour
+        0.9         // eveningRushFactor
     );
   }
 

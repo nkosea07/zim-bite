@@ -1,11 +1,11 @@
 package com.zimbite.gateway.filter;
 
+import com.zimbite.gateway.config.GatewayRateLimitProperties;
 import com.zimbite.shared.security.JwtValidator;
 import com.zimbite.shared.security.Role;
 import com.zimbite.shared.security.SecurityHeaders;
 import io.jsonwebtoken.Claims;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -45,18 +45,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         new RbacRule("GET", "/api/v1/analytics/**", EnumSet.of(Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.SYSTEM_ADMIN))
     );
 
-    private static final List<RateLimitRule> RATE_LIMIT_RULES = List.of(
-        new RateLimitRule("POST", "/api/v1/auth/**", 5, 60),
-        new RateLimitRule("POST", "/api/v1/orders", 20, 3600),
-        new RateLimitRule("POST", "/api/v1/payments/initiate", 10, 3600),
-        new RateLimitRule(null, "/api/v1/**", 120, 60)
-    );
-
     private final JwtValidator jwtValidator;
+    private final List<RateLimitRule> rateLimitRules;
     private final Map<String, WindowBucket> rateLimitBuckets = new ConcurrentHashMap<>();
 
-    public JwtAuthenticationFilter(JwtValidator jwtValidator) {
+    public JwtAuthenticationFilter(JwtValidator jwtValidator, GatewayRateLimitProperties rateLimitProperties) {
         this.jwtValidator = jwtValidator;
+        this.rateLimitRules = rateLimitProperties.getRules().stream()
+                .map(r -> new RateLimitRule(r.getMethod(), r.getPattern(), r.getLimit(), r.getWindowSeconds()))
+                .toList();
     }
 
     @Override
@@ -148,12 +145,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private RateLimitRule resolveRateLimitRule(String method, String path) {
-        for (RateLimitRule rule : RATE_LIMIT_RULES) {
+        for (RateLimitRule rule : rateLimitRules) {
             if (rule.matches(method, path)) {
                 return rule;
             }
         }
-        return new RateLimitRule(null, "/**", 120, 60);
+        return rateLimitRules.isEmpty()
+                ? new RateLimitRule(null, "/**", 120, 60)
+                : rateLimitRules.get(rateLimitRules.size() - 1);
     }
 
     private boolean isRateLimitExceeded(String key, RateLimitRule rule) {

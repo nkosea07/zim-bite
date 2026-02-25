@@ -1,0 +1,36 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+class EnvConfig {
+  static const String defaultApiBaseUrl = 'http://10.0.2.2:8080';
+
+  static String get apiBaseUrl => resolveApiBaseUrl(dotenv.env);
+
+  static String get googleMapsApiKey => resolveGoogleMapsApiKey(dotenv.env);
+
+  static String resolveApiBaseUrl(Map<String, String> env) {
+    final raw = env['API_BASE_URL']?.trim();
+    if (raw == null || raw.isEmpty) {
+      return defaultApiBaseUrl;
+    }
+    return raw;
+  }
+
+  static String resolveGoogleMapsApiKey(Map<String, String> env) {
+    return env['GOOGLE_MAPS_API_KEY']?.trim() ?? '';
+  }
+
+  static Future<bool> loadOptional(
+    String fileName, {
+    Future<void> Function(String fileName)? loader,
+  }) async {
+    final envLoader = loader ?? ((name) => dotenv.load(fileName: name));
+    try {
+      await envLoader(fileName);
+      return true;
+    } catch (error) {
+      debugPrint('Env file "$fileName" was not loaded: $error');
+      return false;
+    }
+  }
+}

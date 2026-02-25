@@ -31,6 +31,7 @@ import com.zimbite.order.repository.VendorCoordinatesRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,7 +81,10 @@ class OrderServiceTest {
         vendorCoordinatesRepository,
         userAddressCoordinatesRepository,
         orderInventoryService,
-        new ObjectMapper().findAndRegisterModules()
+        new ObjectMapper().findAndRegisterModules(),
+        "Africa/Harare",
+        5,
+        10
     );
   }
 
@@ -138,7 +142,8 @@ class OrderServiceTest {
         List.of(
             new OrderItemRequest(itemA, 2),
             new OrderItemRequest(itemB, 1)
-        )
+        ),
+        null
     );
 
     MenuItemPricingEntity menuA = menuItem(itemA, vendorId, "USD", true, new BigDecimal("3.50"));
@@ -146,15 +151,15 @@ class OrderServiceTest {
     VendorCoordinatesEntity vendorCoordinates = vendorCoordinates(vendorId, "-17.801234", "31.031234");
     UserAddressCoordinatesEntity addressCoordinates = userAddress(addressId, userId, -17.910987, 31.119876);
 
-    when(vendorCoordinatesRepository.findById(vendorId)).thenReturn(Optional.of(vendorCoordinates));
+    when(vendorCoordinatesRepository.findById(Objects.requireNonNull(vendorId))).thenReturn(Optional.of(vendorCoordinates));
     when(userAddressCoordinatesRepository.findByIdAndUserId(addressId, userId))
         .thenReturn(Optional.of(addressCoordinates));
     when(menuItemPricingRepository.findByIdInAndVendorId(anyCollection(), eq(vendorId)))
         .thenReturn(List.of(menuA, menuB));
-    when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-    when(orderItemRepository.save(any(OrderItemEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-    when(outboxEventRepository.save(any(OrderOutboxEventEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-    when(orderStatusHistoryRepository.save(any(OrderStatusHistoryEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.<OrderEntity>getArgument(0));
+    when(orderItemRepository.save(any(OrderItemEntity.class))).thenAnswer(invocation -> invocation.<OrderItemEntity>getArgument(0));
+    when(outboxEventRepository.save(any(OrderOutboxEventEntity.class))).thenAnswer(invocation -> invocation.<OrderOutboxEventEntity>getArgument(0));
+    when(orderStatusHistoryRepository.save(any(OrderStatusHistoryEntity.class))).thenAnswer(invocation -> invocation.<OrderStatusHistoryEntity>getArgument(0));
 
     OrderResponse response = orderService.placeOrder(request);
 
@@ -162,7 +167,7 @@ class OrderServiceTest {
     verify(orderInventoryService).reserveForOrder(response.orderId(), vendorId, request.items());
 
     ArgumentCaptor<OrderEntity> orderCaptor = ArgumentCaptor.forClass(OrderEntity.class);
-    verify(orderRepository).save(orderCaptor.capture());
+    verify(orderRepository).save(orderCaptor.capture()); //NOSONAR: Mockito capture() is a side-effect placeholder
     OrderEntity savedOrder = orderCaptor.getValue();
     assertEquals(addressId, savedOrder.getDeliveryAddressId());
     assertEquals(new BigDecimal("-17.801234"), savedOrder.getPickupLat());
@@ -171,7 +176,7 @@ class OrderServiceTest {
     assertEquals(new BigDecimal("31.119876"), savedOrder.getDropoffLng());
 
     ArgumentCaptor<OrderItemEntity> itemCaptor = ArgumentCaptor.forClass(OrderItemEntity.class);
-    verify(orderItemRepository, times(2)).save(itemCaptor.capture());
+    verify(orderItemRepository, times(2)).save(itemCaptor.capture()); //NOSONAR: Mockito capture() is a side-effect placeholder
     List<OrderItemEntity> savedItems = itemCaptor.getAllValues();
     assertEquals(new BigDecimal("3.50"), savedItems.get(0).getUnitPrice());
     assertEquals(new BigDecimal("2.00"), savedItems.get(1).getUnitPrice());

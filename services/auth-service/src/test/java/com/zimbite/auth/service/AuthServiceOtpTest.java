@@ -56,6 +56,7 @@ class AuthServiceOtpTest {
         new BCryptPasswordEncoder(),
         new JwtProvider(jwtProperties),
         new JwtValidator(jwtProperties),
+        jwtProperties,
         300,
         3,
         "123456"

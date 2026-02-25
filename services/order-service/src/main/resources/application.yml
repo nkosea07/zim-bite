@@ -38,3 +38,9 @@ outbox:
     enabled: ${OUTBOX_PUBLISHER_ENABLED:false}
     batch-size: ${OUTBOX_BATCH_SIZE:50}
     fixed-delay-ms: ${OUTBOX_PUBLISHER_DELAY_MS:5000}
+
+order:
+  delivery:
+    timezone: ${ORDER_DELIVERY_TIMEZONE:Africa/Harare}
+    window-open-hour: ${ORDER_DELIVERY_WINDOW_OPEN_HOUR:5}
+    window-close-hour: ${ORDER_DELIVERY_WINDOW_CLOSE_HOUR:10}

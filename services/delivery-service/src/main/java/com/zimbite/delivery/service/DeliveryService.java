@@ -16,7 +16,6 @@ import com.zimbite.shared.messaging.contract.DeliveryAssignedEvent;
 import com.zimbite.shared.messaging.contract.DeliveryCompletedEvent;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -37,30 +36,40 @@ public class DeliveryService {
 
     private static final Logger log = LoggerFactory.getLogger(DeliveryService.class);
     private static final List<String> ACTIVE_STATUSES = List.of("ASSIGNED", "PICKED_UP");
-    private static final int BATCH_WINDOW_MINUTES = 12;
-    private static final int MAX_ACTIVE_BATCH_PER_RIDER = 2;
-    private static final int DEFAULT_ETA_MINUTES = 18;
-    private static final long MIN_ETA_MINUTES = 3;
-    private static final long MAX_ETA_MINUTES = 75;
-    private static final List<UUID> RIDER_POOL = List.of(
-            UUID.nameUUIDFromBytes("rider-alpha".getBytes(StandardCharsets.UTF_8)),
-            UUID.nameUUIDFromBytes("rider-bravo".getBytes(StandardCharsets.UTF_8)),
-            UUID.nameUUIDFromBytes("rider-charlie".getBytes(StandardCharsets.UTF_8)),
-            UUID.nameUUIDFromBytes("rider-delta".getBytes(StandardCharsets.UTF_8)),
-            UUID.nameUUIDFromBytes("rider-echo".getBytes(StandardCharsets.UTF_8)),
-            UUID.nameUUIDFromBytes("rider-foxtrot".getBytes(StandardCharsets.UTF_8))
-    );
 
     private final DeliveryRepository deliveryRepository;
     private final DeliveryLocationRepository locationRepository;
     private final OrderDeliverySnapshotRepository orderDeliverySnapshotRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+
+    // tracking
     private final long maxLocationAgeSeconds;
     private final long maxFutureSkewSeconds;
     private final double maxTrackingSpeedKmh;
+
+    // ETA
     private final double minEtaSpeedKmh;
     private final double maxEtaSpeedKmh;
+    private final int defaultEtaMinutes;
+    private final long minEtaMinutes;
+    private final long maxEtaMinutes;
+    private final double pickedUpFallbackSpeedKmh;
+    private final double assignedFallbackSpeedKmh;
+    private final long pickedUpBufferMinutes;
+    private final long assignedBufferMinutes;
+
+    // assignment
+    private final int batchWindowMinutes;
+    private final int maxActivePerRider;
+
+    // traffic
+    private final int morningRushStartHour;
+    private final int morningRushEndHour;
+    private final double morningRushFactor;
+    private final int eveningRushStartHour;
+    private final int eveningRushEndHour;
+    private final double eveningRushFactor;
 
     public DeliveryService(
             DeliveryRepository deliveryRepository,
@@ -72,7 +81,22 @@ public class DeliveryService {
             @Value("${delivery.tracking.max-future-skew-seconds:60}") long maxFutureSkewSeconds,
             @Value("${delivery.tracking.max-speed-kmh:95.0}") double maxTrackingSpeedKmh,
             @Value("${delivery.eta.min-speed-kmh:12.0}") double minEtaSpeedKmh,
-            @Value("${delivery.eta.max-speed-kmh:38.0}") double maxEtaSpeedKmh
+            @Value("${delivery.eta.max-speed-kmh:38.0}") double maxEtaSpeedKmh,
+            @Value("${delivery.eta.default-minutes:18}") int defaultEtaMinutes,
+            @Value("${delivery.eta.min-minutes:3}") long minEtaMinutes,
+            @Value("${delivery.eta.max-minutes:75}") long maxEtaMinutes,
+            @Value("${delivery.eta.picked-up-fallback-speed-kmh:26.0}") double pickedUpFallbackSpeedKmh,
+            @Value("${delivery.eta.assigned-fallback-speed-kmh:18.0}") double assignedFallbackSpeedKmh,
+            @Value("${delivery.eta.picked-up-buffer-minutes:2}") long pickedUpBufferMinutes,
+            @Value("${delivery.eta.assigned-buffer-minutes:7}") long assignedBufferMinutes,
+            @Value("${delivery.assignment.batch-window-minutes:12}") int batchWindowMinutes,
+            @Value("${delivery.assignment.max-active-per-rider:2}") int maxActivePerRider,
+            @Value("${delivery.traffic.morning-rush-start-hour:6}") int morningRushStartHour,
+            @Value("${delivery.traffic.morning-rush-end-hour:9}") int morningRushEndHour,
+            @Value("${delivery.traffic.morning-rush-factor:0.82}") double morningRushFactor,
+            @Value("${delivery.traffic.evening-rush-start-hour:16}") int eveningRushStartHour,
+            @Value("${delivery.traffic.evening-rush-end-hour:18}") int eveningRushEndHour,
+            @Value("${delivery.traffic.evening-rush-factor:0.9}") double eveningRushFactor
     ) {
         this.deliveryRepository = deliveryRepository;
         this.locationRepository = locationRepository;
@@ -84,6 +108,21 @@ public class DeliveryService {
         this.maxTrackingSpeedKmh = maxTrackingSpeedKmh;
         this.minEtaSpeedKmh = minEtaSpeedKmh;
         this.maxEtaSpeedKmh = maxEtaSpeedKmh;
+        this.defaultEtaMinutes = defaultEtaMinutes;
+        this.minEtaMinutes = minEtaMinutes;
+        this.maxEtaMinutes = maxEtaMinutes;
+        this.pickedUpFallbackSpeedKmh = pickedUpFallbackSpeedKmh;
+        this.assignedFallbackSpeedKmh = assignedFallbackSpeedKmh;
+        this.pickedUpBufferMinutes = pickedUpBufferMinutes;
+        this.assignedBufferMinutes = assignedBufferMinutes;
+        this.batchWindowMinutes = batchWindowMinutes;
+        this.maxActivePerRider = maxActivePerRider;
+        this.morningRushStartHour = morningRushStartHour;
+        this.morningRushEndHour = morningRushEndHour;
+        this.morningRushFactor = morningRushFactor;
+        this.eveningRushStartHour = eveningRushStartHour;
+        this.eveningRushEndHour = eveningRushEndHour;
+        this.eveningRushFactor = eveningRushFactor;
     }
 
     @Transactional
@@ -252,13 +291,13 @@ public class DeliveryService {
     }
 
     private AssignmentPlan resolveAssignmentPlan(OffsetDateTime now, RoutePoint pickup) {
-        OffsetDateTime windowStart = now.minusMinutes(BATCH_WINDOW_MINUTES);
+        OffsetDateTime windowStart = now.minusMinutes(batchWindowMinutes);
         List<DeliveryEntity> recentActive = deliveryRepository.findByStatusInAndAssignedAtAfter(ACTIVE_STATUSES, windowStart);
 
         var candidate = recentActive.stream()
                 .filter(delivery -> delivery.getRiderId() != null)
                 .filter(delivery -> delivery.getDropoffLat() != null && delivery.getDropoffLng() != null)
-                .filter(delivery -> activeDeliveriesFor(delivery.getRiderId()) < MAX_ACTIVE_BATCH_PER_RIDER)
+                .filter(delivery -> activeDeliveriesFor(delivery.getRiderId()) < maxActivePerRider)
                 .map(delivery -> new AssignmentCandidate(
                         delivery,
                         distanceKm(delivery.getDropoffLat(), delivery.getDropoffLng(), pickup.latitude(), pickup.longitude())))
@@ -274,10 +313,8 @@ public class DeliveryService {
             );
         }
 
-        UUID riderId = RIDER_POOL.stream()
-                .min(Comparator.comparingLong(this::activeDeliveriesFor))
-                .orElse(UUID.nameUUIDFromBytes(("fallback-rider-" + pickup.latitude() + pickup.longitude())
-                        .getBytes(StandardCharsets.UTF_8)));
+        UUID riderId = UUID.nameUUIDFromBytes(("fallback-rider-" + pickup.latitude() + pickup.longitude())
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         return new AssignmentPlan(riderId, false, null, 0.0);
     }
@@ -327,24 +364,24 @@ public class DeliveryService {
         }
 
         if (delivery.getDropoffLat() == null || delivery.getDropoffLng() == null) {
-            return lastUpdated.plusMinutes(DEFAULT_ETA_MINUTES);
+            return lastUpdated.plusMinutes(defaultEtaMinutes);
         }
 
         BigDecimal sourceLat = lastLat != null ? lastLat : delivery.getPickupLat();
         BigDecimal sourceLng = lastLng != null ? lastLng : delivery.getPickupLng();
         if (sourceLat == null || sourceLng == null) {
-            return lastUpdated.plusMinutes(DEFAULT_ETA_MINUTES);
+            return lastUpdated.plusMinutes(defaultEtaMinutes);
         }
 
         double remainingKm = remainingDistanceKm(delivery, sourceLat, sourceLng);
         if (remainingKm <= 0.05) {
-            return lastUpdated.plusMinutes(MIN_ETA_MINUTES);
+            return lastUpdated.plusMinutes(minEtaMinutes);
         }
 
         double speedKmh = estimateEffectiveSpeedKmh(delivery, recentLocations, lastUpdated);
         long baseMinutes = (long) Math.ceil((remainingKm / speedKmh) * 60.0);
-        long bufferMinutes = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? 2L : 7L;
-        long etaMinutes = clamp(MIN_ETA_MINUTES, MAX_ETA_MINUTES, baseMinutes + bufferMinutes);
+        long bufferMinutes = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? pickedUpBufferMinutes : assignedBufferMinutes;
+        long etaMinutes = clamp(minEtaMinutes, maxEtaMinutes, baseMinutes + bufferMinutes);
         return lastUpdated.plusMinutes(etaMinutes);
     }
 
@@ -373,7 +410,7 @@ public class DeliveryService {
             List<DeliveryLocationEntity> recentLocations,
             OffsetDateTime lastUpdated
     ) {
-        double fallback = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? 26.0 : 18.0;
+        double fallback = "PICKED_UP".equalsIgnoreCase(delivery.getStatus()) ? pickedUpFallbackSpeedKmh : assignedFallbackSpeedKmh;
 
         double total = 0.0;
         int count = 0;
@@ -405,11 +442,11 @@ public class DeliveryService {
 
     private double trafficFactor(OffsetDateTime at) {
         int hour = at.getHour();
-        if (hour >= 6 && hour <= 9) {
-            return 0.82;
+        if (hour >= morningRushStartHour && hour <= morningRushEndHour) {
+            return morningRushFactor;
         }
-        if (hour >= 16 && hour <= 18) {
-            return 0.9;
+        if (hour >= eveningRushStartHour && hour <= eveningRushEndHour) {
+            return eveningRushFactor;
         }
         return 1.0;
     }

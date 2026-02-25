@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -53,6 +54,9 @@ public class OrderService {
   private final UserAddressCoordinatesRepository userAddressCoordinatesRepository;
   private final OrderInventoryService orderInventoryService;
   private final ObjectMapper objectMapper;
+  private final ZoneId deliveryZone;
+  private final int deliveryWindowOpenHour;
+  private final int deliveryWindowCloseHour;
 
   public OrderService(
       OrderRepository orderRepository,
@@ -63,7 +67,10 @@ public class OrderService {
       VendorCoordinatesRepository vendorCoordinatesRepository,
       UserAddressCoordinatesRepository userAddressCoordinatesRepository,
       OrderInventoryService orderInventoryService,
-      ObjectMapper objectMapper
+      ObjectMapper objectMapper,
+      @Value("${order.delivery.timezone:Africa/Harare}") String deliveryTimezone,
+      @Value("${order.delivery.window-open-hour:5}") int deliveryWindowOpenHour,
+      @Value("${order.delivery.window-close-hour:10}") int deliveryWindowCloseHour
   ) {
     this.orderRepository = orderRepository;
     this.orderItemRepository = orderItemRepository;
@@ -74,6 +81,9 @@ public class OrderService {
     this.userAddressCoordinatesRepository = userAddressCoordinatesRepository;
     this.orderInventoryService = orderInventoryService;
     this.objectMapper = objectMapper;
+    this.deliveryZone = ZoneId.of(deliveryTimezone);
+    this.deliveryWindowOpenHour = deliveryWindowOpenHour;
+    this.deliveryWindowCloseHour = deliveryWindowCloseHour;
   }
 
   @Transactional
@@ -307,11 +317,6 @@ public class OrderService {
     return value.setScale(6, RoundingMode.HALF_UP);
   }
 
-  // Dial-A-Breakfast delivery window: 05:00–10:00 Africa/Harare (UTC+2)
-  private static final ZoneId HARARE_ZONE = ZoneId.of("Africa/Harare");
-  private static final int WINDOW_OPEN_HOUR = 5;
-  private static final int WINDOW_CLOSE_HOUR = 10;
-
   private OffsetDateTime validateScheduledFor(OffsetDateTime scheduledFor) {
     if (scheduledFor == null) {
       return null;
@@ -320,12 +325,13 @@ public class OrderService {
     if (!scheduledFor.isAfter(now)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "scheduledFor must be in the future");
     }
-    ZonedDateTime local = scheduledFor.atZoneSameInstant(HARARE_ZONE);
+    ZonedDateTime local = scheduledFor.atZoneSameInstant(deliveryZone);
     int hour = local.getHour();
-    if (hour < WINDOW_OPEN_HOUR || hour >= WINDOW_CLOSE_HOUR) {
+    if (hour < deliveryWindowOpenHour || hour >= deliveryWindowCloseHour) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST,
-          "scheduledFor must be within the 05:00–10:00 Africa/Harare delivery window"
+          String.format("scheduledFor must be within the %02d:00–%02d:00 %s delivery window",
+              deliveryWindowOpenHour, deliveryWindowCloseHour, deliveryZone.getId())
       );
     }
     return scheduledFor;

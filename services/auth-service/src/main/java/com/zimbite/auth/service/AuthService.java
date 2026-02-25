@@ -10,6 +10,7 @@ import com.zimbite.auth.model.entity.RefreshTokenEntity;
 import com.zimbite.auth.repository.AuthUserRepository;
 import com.zimbite.auth.repository.OtpChallengeRepository;
 import com.zimbite.auth.repository.RefreshTokenRepository;
+import com.zimbite.shared.security.JwtProperties;
 import com.zimbite.shared.security.JwtProvider;
 import com.zimbite.shared.security.JwtValidator;
 import com.zimbite.shared.security.Role;
@@ -39,6 +40,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final JwtValidator jwtValidator;
+    private final JwtProperties jwtProperties;
     private final long otpTtlSeconds;
     private final int otpMaxAttempts;
     private final String otpDevStaticCode;
@@ -49,15 +51,17 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtProvider jwtProvider,
                        JwtValidator jwtValidator,
+                       JwtProperties jwtProperties,
                        @Value("${auth.otp.ttl-seconds:300}") long otpTtlSeconds,
                        @Value("${auth.otp.max-attempts:3}") int otpMaxAttempts,
-                       @Value("${auth.otp.dev-static-code:123456}") String otpDevStaticCode) {
+                       @Value("${auth.otp.dev-static-code:}") String otpDevStaticCode) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.otpChallengeRepository = otpChallengeRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.jwtValidator = jwtValidator;
+        this.jwtProperties = jwtProperties;
         this.otpTtlSeconds = otpTtlSeconds;
         this.otpMaxAttempts = otpMaxAttempts;
         this.otpDevStaticCode = otpDevStaticCode;
@@ -172,12 +176,12 @@ public class AuthService {
         entity.setId(UUID.randomUUID());
         entity.setUserId(user.getId());
         entity.setTokenHash(sha256(refreshToken));
-        entity.setExpiresAt(now.plusSeconds(2592000));
+        entity.setExpiresAt(now.plusSeconds(jwtProperties.getRefreshTtlSeconds()));
         entity.setRevoked(false);
         entity.setCreatedAt(now);
         refreshTokenRepository.save(entity);
 
-        return new AuthTokensResponse(accessToken, refreshToken, 900);
+        return new AuthTokensResponse(accessToken, refreshToken, jwtProperties.getAccessTtlSeconds());
     }
 
     private String sha256(String input) {

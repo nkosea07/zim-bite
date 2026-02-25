@@ -41,3 +41,20 @@ delivery:
   eta:
     min-speed-kmh: ${DELIVERY_ETA_MIN_SPEED_KMH:12}
     max-speed-kmh: ${DELIVERY_ETA_MAX_SPEED_KMH:38}
+    default-minutes: ${DELIVERY_ETA_DEFAULT_MINUTES:18}
+    min-minutes: ${DELIVERY_ETA_MIN_MINUTES:3}
+    max-minutes: ${DELIVERY_ETA_MAX_MINUTES:75}
+    picked-up-fallback-speed-kmh: ${DELIVERY_ETA_PICKED_UP_FALLBACK_SPEED:26.0}
+    assigned-fallback-speed-kmh: ${DELIVERY_ETA_ASSIGNED_FALLBACK_SPEED:18.0}
+    picked-up-buffer-minutes: ${DELIVERY_ETA_PICKED_UP_BUFFER_MINUTES:2}
+    assigned-buffer-minutes: ${DELIVERY_ETA_ASSIGNED_BUFFER_MINUTES:7}
+  assignment:
+    batch-window-minutes: ${DELIVERY_ASSIGNMENT_BATCH_WINDOW_MINUTES:12}
+    max-active-per-rider: ${DELIVERY_ASSIGNMENT_MAX_ACTIVE_PER_RIDER:2}
+  traffic:
+    morning-rush-start-hour: ${DELIVERY_TRAFFIC_MORNING_START:6}
+    morning-rush-end-hour: ${DELIVERY_TRAFFIC_MORNING_END:9}
+    morning-rush-factor: ${DELIVERY_TRAFFIC_MORNING_FACTOR:0.82}
+    evening-rush-start-hour: ${DELIVERY_TRAFFIC_EVENING_START:16}
+    evening-rush-end-hour: ${DELIVERY_TRAFFIC_EVENING_END:18}
+    evening-rush-factor: ${DELIVERY_TRAFFIC_EVENING_FACTOR:0.9}
