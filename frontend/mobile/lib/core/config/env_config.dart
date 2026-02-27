@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../maps/map_provider_type.dart';
 
 class EnvConfig {
   static const String defaultApiBaseUrl = 'http://10.0.2.2:8080';
@@ -7,6 +8,9 @@ class EnvConfig {
   static String get apiBaseUrl => resolveApiBaseUrl(dotenv.env);
 
   static String get googleMapsApiKey => resolveGoogleMapsApiKey(dotenv.env);
+
+  static MapProviderType get mapProvider =>
+      resolveMapProvider(dotenv.env, isReleaseMode: kReleaseMode);
 
   static String resolveApiBaseUrl(Map<String, String> env) {
     final raw = env['API_BASE_URL']?.trim();
@@ -18,6 +22,17 @@ class EnvConfig {
 
   static String resolveGoogleMapsApiKey(Map<String, String> env) {
     return env['GOOGLE_MAPS_API_KEY']?.trim() ?? '';
+  }
+
+  static MapProviderType resolveMapProvider(
+    Map<String, String> env, {
+    required bool isReleaseMode,
+  }) {
+    final raw = env['MAP_PROVIDER'];
+    if (raw != null && raw.trim().isNotEmpty) {
+      return MapProviderType.fromRaw(raw);
+    }
+    return isReleaseMode ? MapProviderType.google : MapProviderType.osm;
   }
 
   static Future<bool> loadOptional(

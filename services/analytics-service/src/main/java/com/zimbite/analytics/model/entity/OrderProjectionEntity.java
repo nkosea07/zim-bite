@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "order_projections", schema = "analytics_mgmt")
@@ -18,7 +20,8 @@ public class OrderProjectionEntity {
   @Column(name = "vendor_id", nullable = false)
   private UUID vendorId;
 
-  @Column(nullable = false)
+  @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(nullable = false, length = 3)
   private String currency;
 
   @Column(name = "created_at", nullable = false)

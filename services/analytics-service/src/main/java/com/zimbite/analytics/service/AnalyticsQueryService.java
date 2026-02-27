@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -51,6 +52,7 @@ public class AnalyticsQueryService {
   private final Map<UUID, PaymentSnapshot> refundedPaymentsById = new ConcurrentHashMap<>();
   private final Map<UUID, DeliverySnapshot> deliveriesById = new ConcurrentHashMap<>();
 
+  @Autowired
   public AnalyticsQueryService(
       OrderProjectionRepository orderProjectionRepository,
       SucceededPaymentProjectionRepository succeededPaymentProjectionRepository,

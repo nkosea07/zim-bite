@@ -7,6 +7,8 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "succeeded_payment_projections", schema = "analytics_mgmt")
@@ -22,7 +24,8 @@ public class SucceededPaymentProjectionEntity {
   @Column(nullable = false)
   private BigDecimal amount;
 
-  @Column(nullable = false)
+  @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(nullable = false, length = 3)
   private String currency;
 
   @Column(name = "happened_at", nullable = false)

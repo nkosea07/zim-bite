@@ -9,13 +9,14 @@ public record VendorResponse(
     String slug,
     String description,
     String phoneNumber,
+    String city,
     BigDecimal latitude,
     BigDecimal longitude,
     short averagePrepMinutes,
     BigDecimal deliveryRadiusKm,
     BigDecimal minOrderValue,
     boolean acceptsCash,
-    boolean active,
+    boolean open,
     BigDecimal ratingAvg
 ) {
 }

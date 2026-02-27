@@ -1,0 +1,55 @@
+-- Seed vendors for development / initial deployment
+-- owner_user_id is a placeholder system-admin user
+INSERT INTO vendor_mgmt.vendors
+    (id, owner_user_id, name, slug, description, phone_number, support_email,
+     city, latitude, longitude, average_prep_minutes, delivery_radius_km,
+     min_order_value, accepts_cash, is_active, rating_avg, created_at, updated_at)
+VALUES
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb001',
+     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     'Sunrise Kitchen',
+     'sunrise-kitchen',
+     'Authentic Zimbabwean breakfast made fresh every morning.',
+     '+263771000001',
+     'hello@sunrisekitchen.co.zw',
+     'Harare',
+     -17.8292, 31.0522,
+     20, 6.00, 0.00, TRUE, TRUE, 4.50,
+     NOW(), NOW()),
+
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb002',
+     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     'Morning Plate',
+     'morning-plate',
+     'Hearty breakfast plates delivered to your door.',
+     '+263771000002',
+     'hello@morningplate.co.zw',
+     'Harare',
+     -17.8016, 31.0447,
+     25, 5.00, 0.00, TRUE, TRUE, 4.20,
+     NOW(), NOW()),
+
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb003',
+     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     'Zim Brekkie Co.',
+     'zim-brekkie-co',
+     'Classic Bulawayo breakfast flavours.',
+     '+263771000003',
+     'hello@zimbrekkie.co.zw',
+     'Bulawayo',
+     -20.1524, 28.5728,
+     30, 4.00, 2.00, TRUE, FALSE, 3.80,
+     NOW(), NOW()),
+
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb004',
+     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     'Golden Sadza',
+     'golden-sadza',
+     'Traditional sadza breakfast bowls with a modern twist.',
+     '+263771000004',
+     'hello@goldensadza.co.zw',
+     'Harare',
+     -17.8400, 31.0600,
+     20, 7.00, 0.00, TRUE, TRUE, 4.70,
+     NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;

@@ -15,6 +15,19 @@ Supported keys:
 
 - `API_BASE_URL` (default: `http://10.0.2.2:8080`)
 - `GOOGLE_MAPS_API_KEY` (default: empty)
+- `MAP_PROVIDER` (`osm` or `google`)
+  - default in debug/dev: `osm`
+  - default in release/prod: `google`
+  - `.env.dev` should set `MAP_PROVIDER=osm`
+  - `.env.prod` should set `MAP_PROVIDER=google`
+
+## Map provider strategy
+
+- Development uses OpenStreetMap tiles via `flutter_map`.
+- Production uses `google_maps_flutter`.
+- The app map abstraction is `AppMap` in
+  `lib/core/maps/app_map.dart`, and provider selection is in
+  `EnvConfig.resolveMapProvider`.
 
 ## Auth API contract (mobile -> auth-service)
 

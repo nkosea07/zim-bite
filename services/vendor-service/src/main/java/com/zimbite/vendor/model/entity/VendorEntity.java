@@ -33,6 +33,9 @@ public class VendorEntity {
     private String supportEmail;
 
     @Column(nullable = false)
+    private String city;
+
+    @Column(nullable = false)
     private BigDecimal latitude;
 
     @Column(nullable = false)
@@ -82,6 +85,9 @@ public class VendorEntity {
 
     public String getSupportEmail() { return supportEmail; }
     public void setSupportEmail(String supportEmail) { this.supportEmail = supportEmail; }
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
 
     public BigDecimal getLatitude() { return latitude; }
     public void setLatitude(BigDecimal latitude) { this.latitude = latitude; }

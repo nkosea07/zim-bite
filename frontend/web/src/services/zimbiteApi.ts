@@ -1,6 +1,8 @@
 import { apiRequest } from './apiClient';
 import { parseJwtClaims } from './jwt';
 
+/* ── Domain types ─────────────────────────────────────────────── */
+
 export type Vendor = {
   id: string;
   name: string;
@@ -37,6 +39,7 @@ export type OrderResponse = {
   status: string;
   totalAmount: number;
   currency: 'USD' | 'ZWL';
+  scheduledFor?: string | null;
 };
 
 export type PaymentResponse = {
@@ -56,10 +59,31 @@ export type AuthSession = {
   role: string;
 };
 
+export type OtpChallengeResponse = {
+  challengeId: string;
+  maskedPhone: string;
+  expiresIn: number;
+};
+
+export type OtpVerifyRequest = {
+  challengeId: string;
+  otp: string;
+};
+
+/* ── API client ───────────────────────────────────────────────── */
+
 export const zimbiteApi = {
-  login: async (payload: { principal: string; password: string }) => {
+  /** Step 1 of OTP login: register/login phone → receive OTP */
+  sendOtp: (phone: string) =>
+    apiRequest<OtpChallengeResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ phone })
+    }),
+
+  /** Step 2 of OTP login: verify code → receive tokens */
+  verifyOtp: async (payload: OtpVerifyRequest): Promise<AuthSession> => {
     const tokens = await apiRequest<{ accessToken: string; refreshToken: string; expiresIn: number }>(
-      '/auth/login',
+      '/auth/verify-otp',
       {
         method: 'POST',
         body: JSON.stringify(payload)
@@ -71,69 +95,25 @@ export const zimbiteApi = {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresIn: tokens.expiresIn,
-      userId: typeof claims?.sub === 'string' ? claims.sub : payload.principal,
+      userId: typeof claims?.sub === 'string' ? claims.sub : '',
       role: typeof claims?.role === 'string' ? claims.role : 'CUSTOMER'
-    } satisfies AuthSession;
+    };
   },
 
   listVendors: () =>
-    apiRequest<Vendor[]>('/vendors', { method: 'GET' }, () => [
-      {
-        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb001',
-        name: 'Sunrise Kitchen',
-        city: 'Harare',
-        latitude: -17.8292,
-        longitude: 31.0522,
-        open: true
-      },
-      {
-        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbb002',
-        name: 'Morning Plate',
-        city: 'Harare',
-        latitude: -17.8016,
-        longitude: 31.0447,
-        open: true
-      }
-    ]),
+    apiRequest<Vendor[]>('/vendors', { method: 'GET' }),
 
   listMenuItems: (vendorId: string) =>
-    apiRequest<MenuItem[]>(`/menu/vendors/${vendorId}/items`, { method: 'GET' }, () => [
-      {
-        id: 'dddddddd-dddd-dddd-dddd-ddddddddddd1',
-        vendorId,
-        name: 'Classic Sadza Breakfast Bowl',
-        category: 'Breakfast Bowls',
-        basePrice: 6.5,
-        currency: 'USD',
-        available: true
-      },
-      {
-        id: 'dddddddd-dddd-dddd-dddd-ddddddddddd2',
-        vendorId,
-        name: 'Ginger Tea',
-        category: 'Drinks',
-        basePrice: 1.2,
-        currency: 'USD',
-        available: true
-      }
-    ]),
+    apiRequest<MenuItem[]>(`/menu/vendors/${vendorId}/items`, { method: 'GET' }),
 
   calculateMeal: (payload: MealCalcRequest) =>
-    apiRequest<MealCalcResponse>(
-      '/meal-builder/calculate',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      },
-      () => {
-        const componentTotal = payload.components.reduce((sum, item) => sum + item.quantity * 1.2, 0);
-        return {
-          totalPrice: Number((3 + componentTotal).toFixed(2)),
-          estimatedCalories: 250 + payload.components.reduce((sum, item) => sum + item.quantity * 85, 0),
-          available: payload.components.every((item) => item.quantity <= 5)
-        };
-      }
-    ),
+    apiRequest<MealCalcResponse>('/meal-builder/calculate', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+
+  listOrders: () =>
+    apiRequest<OrderResponse[]>('/orders', { method: 'GET' }),
 
   placeOrder: (payload: {
     userId: string;
@@ -141,19 +121,10 @@ export const zimbiteApi = {
     currency: 'USD' | 'ZWL';
     items: Array<{ menuItemId: string; quantity: number }>;
   }) =>
-    apiRequest<OrderResponse>(
-      '/orders',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      },
-      () => ({
-        orderId: crypto.randomUUID(),
-        status: 'PENDING_PAYMENT',
-        totalAmount: payload.items.reduce((sum, item) => sum + item.quantity * 5, 0),
-        currency: payload.currency
-      })
-    ),
+    apiRequest<OrderResponse>('/orders', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
 
   initiatePayment: (payload: {
     orderId: string;
@@ -161,20 +132,9 @@ export const zimbiteApi = {
     amount: number;
     currency: 'USD' | 'ZWL';
   }) =>
-    apiRequest<PaymentResponse>(
-      '/payments/initiate',
-      {
-        method: 'POST',
-        headers: { 'Idempotency-Key': `ui-${payload.orderId}` },
-        body: JSON.stringify(payload)
-      },
-      () => ({
-        paymentId: crypto.randomUUID(),
-        orderId: payload.orderId,
-        provider: payload.provider,
-        status: 'PENDING',
-        amount: payload.amount,
-        currency: payload.currency
-      })
-    )
+    apiRequest<PaymentResponse>('/payments/initiate', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': `ui-${payload.orderId}` },
+      body: JSON.stringify(payload)
+    })
 };

@@ -1,13 +1,95 @@
+/* ─────────────────────────────────────────────────────────────
+   ZimBite Design Tokens
+   Warm editorial palette — burnt orange × cream × deep charcoal
+   ───────────────────────────────────────────────────────────── */
+
 :root {
-  --bg: #f4f1ea;
-  --bg-accent: radial-gradient(circle at 10% 0%, #f7d585 0%, rgba(247, 213, 133, 0.1) 30%, rgba(244, 241, 234, 1) 80%);
-  --surface: #fff9ec;
-  --text: #1f2a2a;
-  --muted: #6c7a7a;
-  --line: #dfd4bf;
-  --brand: #d24d29;
-  --brand-strong: #9e2f14;
-  --success: #1f7a57;
-  --shadow: 0 12px 40px rgba(36, 33, 24, 0.08);
-  --radius: 16px;
+  /* Colour palette */
+  --brand:        #D24D29;
+  --brand-dark:   #A83A1A;
+  --brand-light:  #F5866A;
+  --brand-tint:   #FFF0EB;
+
+  --bg:           #F5F0E8;
+  --bg-warm:      #FAF6EF;
+  --surface:      #FFFFFF;
+  --surface-2:    #FDF9F4;
+  --surface-3:    #F8F2E8;
+
+  --text:         #1A2020;
+  --text-2:       #3D4A4A;
+  --muted:        #6E7E7E;
+  --placeholder:  #A8B4B4;
+
+  --line:         #E4DAC8;
+  --line-strong:  #C9BDA8;
+
+  --success:      #1A7A50;
+  --success-tint: #E8F8F0;
+  --warning:      #C47B10;
+  --warning-tint: #FFF8E6;
+  --danger:       #C43D2F;
+  --danger-tint:  #FDECEA;
+
+  --accent-gold:  #C8931A;
+  --accent-green: #2E7D52;
+
+  /* Typography */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body:    'DM Sans', 'Avenir Next', system-ui, sans-serif;
+
+  /* Spacing scale (8px base) */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* Border radius */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  18px;
+  --radius-xl:  24px;
+  --radius-pill: 999px;
+
+  /* Elevation / shadows */
+  --shadow-xs:  0 1px 3px rgba(26, 32, 32, 0.06);
+  --shadow-sm:  0 2px 8px rgba(26, 32, 32, 0.08);
+  --shadow-md:  0 8px 24px rgba(26, 32, 32, 0.10);
+  --shadow-lg:  0 16px 48px rgba(26, 32, 32, 0.12);
+  --shadow-brand: 0 8px 24px rgba(210, 77, 41, 0.30);
+
+  /* Transitions */
+  --ease-out:   cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:   140ms;
+  --dur-base:   240ms;
+  --dur-slow:   400ms;
+
+  /* Layout */
+  --topbar-h:   64px;
+  --page-max:   1200px;
+  --page-gutter: clamp(16px, 4vw, 48px);
+}
+
+/* Dark mode — optional future hook */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #161A1A;
+    --bg-warm:   #1C2020;
+    --surface:   #222828;
+    --surface-2: #252B2B;
+    --surface-3: #2A3030;
+    --text:      #F0ECE4;
+    --text-2:    #C8C0B0;
+    --muted:     #7A8888;
+    --line:      #333C3C;
+    --line-strong: #445050;
+  }
 }

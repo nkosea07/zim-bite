@@ -1,0 +1,2 @@
+ALTER TABLE vendor_mgmt.vendors
+    ADD COLUMN IF NOT EXISTS city VARCHAR(100) NOT NULL DEFAULT 'Harare';

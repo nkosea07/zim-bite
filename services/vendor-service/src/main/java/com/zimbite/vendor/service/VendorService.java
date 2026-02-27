@@ -114,7 +114,7 @@ public class VendorService {
     private VendorResponse toResponse(VendorEntity v) {
         return new VendorResponse(
                 v.getId(), v.getName(), v.getSlug(), v.getDescription(),
-                v.getPhoneNumber(), v.getLatitude(), v.getLongitude(),
+                v.getPhoneNumber(), v.getCity(), v.getLatitude(), v.getLongitude(),
                 v.getAveragePrepMinutes(), v.getDeliveryRadiusKm(),
                 v.getMinOrderValue(), v.isAcceptsCash(), v.isActive(),
                 v.getRatingAvg());
