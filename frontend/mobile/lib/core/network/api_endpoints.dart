@@ -100,4 +100,22 @@ class ApiEndpoints {
   /// Returns `/api/v1/deliveries/orders/{orderId}/tracking`.
   static String deliveryTracking(String orderId) =>
       '$_base/deliveries/orders/$orderId/tracking';
+
+  // ── Rider ─────────────────────────────────────────────────────────────────
+  static const String riderAvailableDeliveries =
+      '$_base/deliveries/rider/available';
+  static const String riderActiveDeliveries =
+      '$_base/deliveries/rider/active';
+
+  /// Returns `/api/v1/deliveries/{deliveryId}/accept`.
+  static String acceptDelivery(String deliveryId) =>
+      '$_base/deliveries/$deliveryId/accept';
+
+  /// Returns `/api/v1/deliveries/{deliveryId}/status`.
+  static String updateDeliveryStatus(String deliveryId) =>
+      '$_base/deliveries/$deliveryId/status';
+
+  /// Returns `/api/v1/deliveries/{deliveryId}/chat`.
+  static String deliveryChat(String deliveryId) =>
+      '$_base/deliveries/$deliveryId/chat';
 }

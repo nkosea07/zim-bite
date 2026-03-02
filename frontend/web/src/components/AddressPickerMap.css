@@ -1,0 +1,35 @@
+.address-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: var(--space-4);
+}
+
+.address-picker-modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: grid;
+  gap: var(--space-4);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+}
+
+.address-picker-map-wrap .leaflet-container {
+  height: 320px;
+  border-radius: var(--radius-md);
+  z-index: 1;
+}
+
+@media (max-width: 600px) {
+  .address-picker-map-wrap .leaflet-container {
+    height: 220px;
+  }
+}

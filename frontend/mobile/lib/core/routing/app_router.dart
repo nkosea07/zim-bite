@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/storage/token_storage.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/otp_screen.dart';
@@ -21,6 +22,10 @@ import '../../features/delivery_tracking/presentation/screens/delivery_tracking_
 import '../../features/subscriptions/presentation/screens/subscription_list_screen.dart';
 import '../../features/subscriptions/presentation/screens/create_subscription_screen.dart';
 import '../../features/notifications/presentation/screens/notification_list_screen.dart';
+import '../../features/rider/presentation/screens/rider_dashboard_screen.dart';
+import '../../features/rider/presentation/screens/active_delivery_screen.dart';
+import '../../features/rider/presentation/screens/rider_chat_screen.dart';
+import '../../features/rider/presentation/screens/rider_earnings_screen.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -29,18 +34,37 @@ class AppRouter {
 
   late final GoRouter router;
 
-  AppRouter(AuthBloc authBloc) {
+  String? _userRole;
+
+  AppRouter(AuthBloc authBloc, TokenStorage tokenStorage) {
+    // Listen to auth state changes to cache the role synchronously for redirect
+    authBloc.stream.listen((state) async {
+      if (state is AuthAuthenticated) {
+        _userRole = await tokenStorage.getRole();
+        router.refresh();
+      } else {
+        _userRole = null;
+      }
+    });
+
     router = GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: '/home',
       redirect: (context, state) {
         final authState = authBloc.state;
         final isAuthRoute = state.matchedLocation.startsWith('/auth');
+        final isRiderRoute = state.matchedLocation.startsWith('/rider');
 
         if (authState is! AuthAuthenticated && !isAuthRoute) {
           return '/auth/login';
         }
         if (authState is AuthAuthenticated && isAuthRoute) {
+          return _userRole == 'RIDER' ? '/rider/dashboard' : '/home';
+        }
+        // Prevent non-riders from accessing rider routes
+        if (authState is AuthAuthenticated &&
+            isRiderRoute &&
+            _userRole != 'RIDER') {
           return '/home';
         }
         return null;
@@ -181,6 +205,32 @@ class AppRouter {
           name: RouteNames.notifications,
           builder: (context, state) => const NotificationListScreen(),
         ),
+
+        // Rider routes (outside bottom nav shell)
+        GoRoute(
+          path: '/rider/dashboard',
+          name: RouteNames.riderDashboard,
+          builder: (context, state) => const RiderDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/rider/delivery/:deliveryId',
+          name: RouteNames.riderDelivery,
+          builder: (context, state) => ActiveDeliveryScreen(
+            deliveryId: state.pathParameters['deliveryId']!,
+          ),
+        ),
+        GoRoute(
+          path: '/rider/chat/:deliveryId',
+          name: RouteNames.riderChat,
+          builder: (context, state) => RiderChatScreen(
+            deliveryId: state.pathParameters['deliveryId']!,
+          ),
+        ),
+        GoRoute(
+          path: '/rider/earnings',
+          name: RouteNames.riderEarnings,
+          builder: (context, state) => const RiderEarningsScreen(),
+        ),
       ],
     );
   }
@@ -202,9 +252,18 @@ class _ScaffoldWithNav extends StatelessWidget {
           initialLocation: index == shell.currentIndex,
         ),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Orders'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Home'),
+          NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Orders'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profile'),
         ],
       ),
     );

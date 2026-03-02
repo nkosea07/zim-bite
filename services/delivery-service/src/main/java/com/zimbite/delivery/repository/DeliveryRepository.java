@@ -15,4 +15,8 @@ public interface DeliveryRepository extends JpaRepository<DeliveryEntity, UUID> 
     List<DeliveryEntity> findByStatusInAndAssignedAtAfter(Collection<String> statuses, OffsetDateTime assignedAfter);
 
     long countByRiderIdAndStatusIn(UUID riderId, Collection<String> statuses);
+
+    List<DeliveryEntity> findByStatus(String status);
+
+    List<DeliveryEntity> findByRiderIdAndStatusIn(UUID riderId, Collection<String> statuses);
 }

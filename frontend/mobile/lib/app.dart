@@ -114,7 +114,7 @@ class _ZimBiteAppState extends State<ZimBiteApp> {
     _profileBloc       = ProfileBloc(_profileRepository);
 
     // Router (depends on authBloc for redirect logic)
-    _appRouter = AppRouter(_authBloc);
+    _appRouter = AppRouter(_authBloc, _tokenStorage);
   }
 
   @override

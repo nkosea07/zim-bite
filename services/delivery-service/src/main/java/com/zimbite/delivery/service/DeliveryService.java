@@ -3,11 +3,13 @@ package com.zimbite.delivery.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zimbite.delivery.model.dto.DeliveryTrackingResponse;
+import com.zimbite.delivery.model.dto.RiderDeliveryResponse;
 import com.zimbite.delivery.model.dto.UpdateDeliveryLocationRequest;
 import com.zimbite.delivery.model.dto.UpdateDeliveryStatusRequest;
 import com.zimbite.delivery.model.entity.DeliveryEntity;
 import com.zimbite.delivery.model.entity.DeliveryLocationEntity;
 import com.zimbite.delivery.model.entity.OrderDeliverySnapshotEntity;
+import com.zimbite.delivery.repository.ChatMessageRepository;
 import com.zimbite.delivery.repository.DeliveryLocationRepository;
 import com.zimbite.delivery.repository.DeliveryRepository;
 import com.zimbite.delivery.repository.OrderDeliverySnapshotRepository;
@@ -40,6 +42,7 @@ public class DeliveryService {
     private final DeliveryRepository deliveryRepository;
     private final DeliveryLocationRepository locationRepository;
     private final OrderDeliverySnapshotRepository orderDeliverySnapshotRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
@@ -75,6 +78,7 @@ public class DeliveryService {
             DeliveryRepository deliveryRepository,
             DeliveryLocationRepository locationRepository,
             OrderDeliverySnapshotRepository orderDeliverySnapshotRepository,
+            ChatMessageRepository chatMessageRepository,
             KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
             @Value("${delivery.tracking.max-location-age-seconds:900}") long maxLocationAgeSeconds,
@@ -101,6 +105,7 @@ public class DeliveryService {
         this.deliveryRepository = deliveryRepository;
         this.locationRepository = locationRepository;
         this.orderDeliverySnapshotRepository = orderDeliverySnapshotRepository;
+        this.chatMessageRepository = chatMessageRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
         this.maxLocationAgeSeconds = maxLocationAgeSeconds;
@@ -257,6 +262,50 @@ public class DeliveryService {
         return new DeliveryTrackingResponse(
                 orderId, delivery.getId(), delivery.getRiderId(),
                 delivery.getStatus(), lastLat, lastLng, lastUpdated, eta);
+    }
+
+    public List<RiderDeliveryResponse> getAvailableForRider(double riderLat, double riderLng) {
+        List<DeliveryEntity> pending = deliveryRepository.findByStatus("PENDING");
+        return pending.stream()
+                .filter(d -> d.getPickupLat() != null && d.getPickupLng() != null)
+                .filter(d -> distanceKm(riderLat, riderLng,
+                        d.getPickupLat().doubleValue(),
+                        d.getPickupLng().doubleValue()) <= 10.0)
+                .map(this::toRiderResponse)
+                .toList();
+    }
+
+    @Transactional
+    public RiderDeliveryResponse acceptDelivery(UUID deliveryId, UUID riderId, double riderLat, double riderLng) {
+        DeliveryEntity delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery not found"));
+        if (delivery.getRiderId() != null && !delivery.getRiderId().equals(riderId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Delivery already accepted by another rider");
+        }
+        delivery.setRiderId(riderId);
+        delivery.setStatus("ASSIGNED");
+        delivery.setAssignedAt(OffsetDateTime.now());
+        delivery.setUpdatedAt(OffsetDateTime.now());
+        return toRiderResponse(deliveryRepository.save(delivery));
+    }
+
+    public List<RiderDeliveryResponse> getRiderActive(UUID riderId) {
+        return deliveryRepository.findByRiderIdAndStatusIn(riderId, List.of("ASSIGNED", "PICKED_UP"))
+                .stream().map(this::toRiderResponse).toList();
+    }
+
+    private RiderDeliveryResponse toRiderResponse(DeliveryEntity d) {
+        return new RiderDeliveryResponse(
+                d.getId(), d.getOrderId(),
+                d.getVendorName() != null ? d.getVendorName() : "Vendor",
+                "Vendor pickup",
+                d.getDeliveryAddressText() != null ? d.getDeliveryAddressText() : "Customer address",
+                d.getPickupLat(), d.getPickupLng(),
+                d.getDropoffLat(), d.getDropoffLng(),
+                d.getTotalAmount(),
+                d.getStatus(),
+                d.getCustomerId(),
+                d.getCustomerPhone());
     }
 
     private <T> void publishEvent(String topic, String key, T event) {

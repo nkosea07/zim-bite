@@ -1,10 +1,11 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../app/store/authStore';
 import { useCartStore } from '../../app/store/cartStore';
-import { zimbiteApi } from '../../services/zimbiteApi';
+import { zimbiteApi, type Address } from '../../services/zimbiteApi';
 import { toast } from '../../app/store/toastStore';
+import { AddressPickerMap, type AddressResult } from '../../components/AddressPickerMap';
 
 type Provider = 'ECOCASH' | 'ONEMONEY' | 'CARD' | 'CASH';
 type Step = 'delivery' | 'payment' | 'confirm';
@@ -24,31 +25,67 @@ const PAYMENT_OPTIONS: { id: Provider; icon: string; label: string; desc: string
 
 const DELIVERY_FEE = 1.5;
 
+/** Build ISO 8601 datetime for the next valid breakfast window from an HH:mm string */
+function buildScheduledFor(timeHHmm: string): string {
+  const [h, m] = timeHHmm.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  if (d <= new Date()) d.setDate(d.getDate() + 1);
+  return d.toISOString();
+}
+
+function formatAddressLine(addr: Address): string {
+  const parts = [addr.line1, addr.area, addr.city].filter(Boolean);
+  return parts.join(', ');
+}
+
 export function CheckoutPage() {
   const navigate = useNavigate();
-  const auth = useAuthStore();
-  const cart = useCartStore();
+  const auth     = useAuthStore();
+  const cart     = useCartStore();
+  const qc       = useQueryClient();
 
-  const [step, setStep]               = useState<Step>('delivery');
-  const [address, setAddress]         = useState('');
-  const [scheduledTime, setScheduled] = useState('07:00');
-  const [provider, setProvider]       = useState<Provider>('ECOCASH');
+  const [step, setStep]                       = useState<Step>('delivery');
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [showAddressMap, setShowAddressMap]   = useState(false);
+  const [scheduledTime, setScheduled]         = useState('07:00');
+  const [provider, setProvider]               = useState<Provider>('ECOCASH');
 
   const subtotal   = useMemo(() => cart.total(), [cart]);
   const grandTotal = subtotal + DELIVERY_FEE;
+  const stepIndex  = STEPS.findIndex((s) => s.id === step);
 
-  const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const { data: addresses = [], isLoading: addressesLoading } = useQuery({
+    queryKey: ['addresses'],
+    queryFn:  zimbiteApi.listAddresses,
+    enabled:  !!auth.userId
+  });
+
+  const addAddressMutation = useMutation({
+    mutationFn: zimbiteApi.addAddress,
+    onSuccess: (saved) => {
+      qc.invalidateQueries({ queryKey: ['addresses'] });
+      setSelectedAddress(saved);
+      setShowAddressMap(false);
+      toast.success('Address saved!', 'Delivery address added to your account.');
+    },
+    onError: () => {
+      toast.error('Failed to save address', 'Please try again.');
+    }
+  });
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       if (!auth.userId)                        throw new Error('Sign in to place an order.');
       if (!cart.vendorId || !cart.items.length) throw new Error('Your cart is empty.');
+      if (!selectedAddress)                    throw new Error('Please select a delivery address.');
 
       const order = await zimbiteApi.placeOrder({
-        userId:   auth.userId,
-        vendorId: cart.vendorId,
-        currency: cart.currency,
-        items:    cart.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity }))
+        vendorId:          cart.vendorId,
+        deliveryAddressId: selectedAddress.id,
+        currency:          cart.currency,
+        items:             cart.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+        scheduledFor:      buildScheduledFor(scheduledTime)
       });
 
       const payment = await zimbiteApi.initiatePayment({
@@ -70,11 +107,22 @@ export function CheckoutPage() {
     }
   });
 
-  const canProceedDelivery = address.trim().length >= 5;
+  function handleAddressResult(result: AddressResult) {
+    addAddressMutation.mutate(result);
+  }
+
+  const canProceedDelivery = selectedAddress !== null;
   const canSubmit          = canProceedDelivery && cart.items.length > 0;
 
   return (
     <>
+      {showAddressMap && (
+        <AddressPickerMap
+          onSave={handleAddressResult}
+          onClose={() => setShowAddressMap(false)}
+        />
+      )}
+
       <div className="section-header">
         <p className="section-eyebrow">Almost there</p>
         <h1 className="section-title">Checkout</h1>
@@ -105,18 +153,107 @@ export function CheckoutPage() {
             <>
               <p className="panel-title">📍 Delivery Details</p>
 
+              {/* Address format hint */}
+              <div
+                style={{
+                  background: 'var(--surface-3)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  marginBottom: 'var(--space-4)',
+                  fontSize: '0.8rem',
+                  color: 'var(--muted)',
+                  borderLeft: '3px solid var(--brand)'
+                }}
+              >
+                <strong style={{ color: 'var(--text)' }}>Address format:</strong>{' '}
+                House/Stand No. Street, Suburb, City
+                <br />
+                <em>e.g. 12 Samora Machel Ave, Avondale, Harare</em>
+              </div>
+
+              {/* Address selector */}
               <div className="stacked-form">
                 <div className="form-field">
-                  <label className="form-label" htmlFor="address">Delivery address</label>
-                  <input
-                    id="address"
-                    className="form-input"
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. 12 Samora Machel Ave, Harare"
-                  />
+                  <label className="form-label">Select delivery address</label>
+
+                  {addressesLoading ? (
+                    <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                      {[1, 2].map((n) => (
+                        <div key={n} className="skeleton" style={{ height: 64, borderRadius: 'var(--radius-md)' }} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                      {addresses.map((addr) => {
+                        const isSelected = selectedAddress?.id === addr.id;
+                        return (
+                          <button
+                            key={addr.id}
+                            onClick={() => setSelectedAddress(addr)}
+                            style={{
+                              textAlign: 'left',
+                              background: isSelected ? 'var(--brand-tint)' : 'var(--surface-3)',
+                              border: `2px solid ${isSelected ? 'var(--brand)' : 'var(--line)'}`,
+                              borderRadius: 'var(--radius-md)',
+                              padding: 'var(--space-3) var(--space-4)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 'var(--space-3)',
+                              transition: 'border-color var(--dur-fast), background var(--dur-fast)'
+                            }}
+                          >
+                            <span style={{
+                              width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                              border: `2px solid ${isSelected ? 'var(--brand)' : 'var(--line)'}`,
+                              background: isSelected ? 'var(--brand)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: '#fff', fontSize: '0.7rem'
+                            }}>
+                              {isSelected ? '✓' : ''}
+                            </span>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 2 }}>
+                                <span className="badge badge-brand" style={{ fontSize: '0.7rem' }}>{addr.label}</span>
+                              </div>
+                              <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text)' }}>
+                                {formatAddressLine(addr)}
+                              </p>
+                              <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'var(--muted)', marginTop: 2 }}>
+                                📌 {addr.latitude.toFixed(4)}, {addr.longitude.toFixed(4)}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                      {/* Add new address card */}
+                      <button
+                        onClick={() => setShowAddressMap(true)}
+                        style={{
+                          textAlign: 'left',
+                          background: 'var(--surface-3)',
+                          border: '2px dashed var(--line)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: 'var(--space-3) var(--space-4)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--space-3)',
+                          color: 'var(--muted)',
+                          fontSize: '0.875rem',
+                          transition: 'border-color var(--dur-fast)'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line)')}
+                      >
+                        <span style={{ fontSize: '1.2rem' }}>＋</span>
+                        {addresses.length === 0 ? 'Add a delivery address' : 'Add a new address'}
+                      </button>
+                    </div>
+                  )}
                 </div>
+
                 <div className="form-field">
                   <label className="form-label" htmlFor="time">Delivery time</label>
                   <select
@@ -194,10 +331,20 @@ export function CheckoutPage() {
                   fontSize: '0.875rem'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
                   <span className="text-muted">Address</span>
-                  <span className="fw-semibold">{address}</span>
+                  <span className="fw-semibold" style={{ textAlign: 'right' }}>
+                    {selectedAddress ? formatAddressLine(selectedAddress) : '—'}
+                  </span>
                 </div>
+                {selectedAddress && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                    <span className="text-muted">Coordinates</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      {selectedAddress.latitude.toFixed(4)}, {selectedAddress.longitude.toFixed(4)}
+                    </span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span className="text-muted">Delivery time</span>
                   <span className="fw-semibold">{scheduledTime} AM</span>

@@ -7,6 +7,9 @@ class EnvConfig {
 
   static String get apiBaseUrl => resolveApiBaseUrl(dotenv.env);
 
+  static String get wsBaseUrl =>
+      dotenv.env['WS_BASE_URL'] ?? 'ws://localhost:8088/ws';
+
   static String get googleMapsApiKey => resolveGoogleMapsApiKey(dotenv.env);
 
   static MapProviderType get mapProvider =>

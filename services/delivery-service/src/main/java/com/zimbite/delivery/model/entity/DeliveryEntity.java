@@ -51,6 +51,21 @@ public class DeliveryEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "vendor_name")
+    private String vendorName;
+
+    @Column(name = "customer_phone")
+    private String customerPhone;
+
+    @Column(name = "delivery_address_text")
+    private String deliveryAddressText;
+
+    @Column(name = "total_amount")
+    private java.math.BigDecimal totalAmount;
+
+    @Column(name = "customer_id")
+    private UUID customerId;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -89,4 +104,19 @@ public class DeliveryEntity {
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getVendorName() { return vendorName; }
+    public void setVendorName(String vendorName) { this.vendorName = vendorName; }
+
+    public String getCustomerPhone() { return customerPhone; }
+    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
+
+    public String getDeliveryAddressText() { return deliveryAddressText; }
+    public void setDeliveryAddressText(String deliveryAddressText) { this.deliveryAddressText = deliveryAddressText; }
+
+    public java.math.BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(java.math.BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+
+    public UUID getCustomerId() { return customerId; }
+    public void setCustomerId(UUID customerId) { this.customerId = customerId; }
 }

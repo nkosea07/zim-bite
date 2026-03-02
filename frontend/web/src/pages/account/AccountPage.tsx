@@ -1,6 +1,10 @@
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../app/store/authStore';
 import { toast } from '../../app/store/toastStore';
+import { zimbiteApi } from '../../services/zimbiteApi';
+import { AddressPickerMap, type AddressResult } from '../../components/AddressPickerMap';
 
 const QUICK_LINKS = [
   { icon: '📋', label: 'My Orders',        to: '/orders',      desc: 'Track and view past orders' },
@@ -11,7 +15,31 @@ const QUICK_LINKS = [
 
 export function AccountPage() {
   const { userId, role, token, clearSession } = useAuthStore();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const qc        = useQueryClient();
+  const [showMap, setShowMap] = useState(false);
+
+  const { data: addresses, isLoading: addressesLoading } = useQuery({
+    queryKey: ['addresses'],
+    queryFn:  zimbiteApi.listAddresses,
+    enabled:  !!userId
+  });
+
+  const addAddressMutation = useMutation({
+    mutationFn: zimbiteApi.addAddress,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['addresses'] });
+      setShowMap(false);
+      toast.success('Address saved!', 'Your delivery address has been added.');
+    },
+    onError: () => {
+      toast.error('Failed to save address', 'Please check your connection and try again.');
+    }
+  });
+
+  function handleAddressResult(result: AddressResult) {
+    addAddressMutation.mutate(result);
+  }
 
   function handleSignOut() {
     clearSession();
@@ -32,6 +60,13 @@ export function AccountPage() {
 
   return (
     <>
+      {showMap && (
+        <AddressPickerMap
+          onSave={handleAddressResult}
+          onClose={() => setShowMap(false)}
+        />
+      )}
+
       <div className="section-header">
         <p className="section-eyebrow">Your profile</p>
         <h1 className="section-title">Account</h1>
@@ -160,6 +195,75 @@ export function AccountPage() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* ── Saved Addresses ─────────────────────────────────── */}
+      <div className="panel" style={{ marginTop: 'var(--space-5)' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 'var(--space-5)'
+          }}
+        >
+          <p className="panel-title" style={{ marginBottom: 0 }}>📍 Saved Addresses</p>
+          <button
+            className="btn-primary"
+            onClick={() => setShowMap(true)}
+            style={{ fontSize: '0.875rem' }}
+          >
+            + Add Address
+          </button>
+        </div>
+
+        {addressesLoading ? (
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+            {[1, 2].map((n) => (
+              <div key={n} className="skeleton" style={{ height: 72, borderRadius: 'var(--radius-md)' }} />
+            ))}
+          </div>
+        ) : addresses && addresses.length > 0 ? (
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+            {addresses.map((addr) => (
+              <div
+                key={addr.id}
+                style={{
+                  background: 'var(--surface-3)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 'var(--space-4)',
+                  display: 'grid',
+                  gap: 'var(--space-2)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <span className="badge badge-brand" style={{ fontSize: '0.75rem' }}>{addr.label}</span>
+                </div>
+                <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  {addr.line1}{addr.area ? `, ${addr.area}` : ''}, {addr.city}
+                </p>
+                <p style={{
+                  fontSize: '0.72rem', fontFamily: 'monospace', color: 'var(--muted)',
+                  background: 'var(--surface)', borderRadius: 'var(--radius-sm)',
+                  padding: '2px 6px', display: 'inline-block'
+                }}>
+                  📌 {addr.latitude.toFixed(5)}, {addr.longitude.toFixed(5)}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: 'var(--space-8) 0' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-3)' }}>🗺️</div>
+            <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>No saved addresses yet</p>
+            <p className="text-sm text-muted" style={{ marginBottom: 'var(--space-4)' }}>
+              Add a delivery address to start ordering.
+            </p>
+            <button className="btn-primary" onClick={() => setShowMap(true)}>
+              + Add your first address
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

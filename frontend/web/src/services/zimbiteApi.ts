@@ -42,6 +42,19 @@ export type OrderResponse = {
   scheduledFor?: string | null;
 };
 
+export type Address = {
+  id: string;
+  label: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  area?: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type AddressPayload = Omit<Address, 'id'>;
+
 export type PaymentResponse = {
   paymentId: string;
   orderId: string;
@@ -115,11 +128,21 @@ export const zimbiteApi = {
   listOrders: () =>
     apiRequest<OrderResponse[]>('/orders', { method: 'GET' }),
 
+  listAddresses: () =>
+    apiRequest<Address[]>('/users/addresses', { method: 'GET' }),
+
+  addAddress: (payload: AddressPayload) =>
+    apiRequest<Address>('/users/addresses', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+
   placeOrder: (payload: {
-    userId: string;
     vendorId: string;
+    deliveryAddressId: string;
     currency: 'USD' | 'ZWL';
     items: Array<{ menuItemId: string; quantity: number }>;
+    scheduledFor?: string;
   }) =>
     apiRequest<OrderResponse>('/orders', {
       method: 'POST',

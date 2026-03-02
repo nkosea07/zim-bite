@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'secure_storage.dart';
 
 class TokenStorage {
@@ -29,4 +30,21 @@ class TokenStorage {
   }
 
   Future<bool> get hasTokens async => await accessToken != null;
+
+  Future<String?> getRole() async {
+    final token = await _storage.read(_accessTokenKey);
+    if (token == null) return null;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      String payload = parts[1];
+      final mod = payload.length % 4;
+      if (mod != 0) payload += '=' * (4 - mod);
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final json = jsonDecode(decoded) as Map<String, dynamic>;
+      return json['role'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 }

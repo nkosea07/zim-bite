@@ -39,4 +39,10 @@ class RouteNames {
 
   // Notifications
   static const notifications = 'notifications';
+
+  // Rider
+  static const riderDashboard = 'rider-dashboard';
+  static const riderDelivery = 'rider-delivery';
+  static const riderChat = 'rider-chat';
+  static const riderEarnings = 'rider-earnings';
 }
