@@ -90,8 +90,8 @@ class _TrackingBody extends StatelessWidget {
   final String orderId;
 
   static const MapCoordinate _harareCenter = MapCoordinate(
-    latitude: -17.825166,
-    longitude: 31.03351,
+    latitude: -17.8292,
+    longitude: 31.0522,
   );
 
   const _TrackingBody({required this.tracking, required this.orderId});
@@ -101,6 +101,15 @@ class _TrackingBody extends StatelessWidget {
     if (t?.currentLatitude != null && t?.currentLongitude != null) {
       return MapCoordinate(
           latitude: t!.currentLatitude!, longitude: t.currentLongitude!);
+    }
+    return _harareCenter;
+  }
+
+  MapCoordinate get _destinationPosition {
+    final t = tracking;
+    if (t?.deliveryLatitude != null && t?.deliveryLongitude != null) {
+      return MapCoordinate(
+          latitude: t!.deliveryLatitude!, longitude: t.deliveryLongitude!);
     }
     return _harareCenter;
   }
@@ -120,10 +129,9 @@ class _TrackingBody extends StatelessWidget {
                 position: _driverPosition,
                 color: AppColors.brandOrange,
               ),
-              // Approximate destination (centre of Harare)
-              const MapPin(
+              MapPin(
                 id: 'destination',
-                position: _harareCenter,
+                position: _destinationPosition,
                 color: AppColors.info,
               ),
             ],
@@ -222,14 +230,14 @@ class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
   Color _color() {
-    switch (status.toLowerCase()) {
-      case 'delivered':
+    switch (status.toUpperCase()) {
+      case 'DELIVERED':
         return AppColors.success;
-      case 'out_for_delivery':
-      case 'out for delivery':
+      case 'OUT_FOR_DELIVERY':
         return AppColors.info;
-      case 'picked_up':
-      case 'en_route':
+      case 'ASSIGNED':
+      case 'PICKED_UP':
+      case 'EN_ROUTE':
         return AppColors.brandOrange;
       default:
         return AppColors.warmGrey500;

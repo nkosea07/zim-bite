@@ -3,19 +3,21 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../app/store/authStore';
 import { zimbiteApi } from '../../services/zimbiteApi';
 
-type OrderStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+type OrderStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'PREPARING' | 'ASSIGNED' | 'PICKED_UP' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   PENDING_PAYMENT:  { label: 'Pending Payment', badge: 'badge-warning' },
   CONFIRMED:        { label: 'Confirmed',        badge: 'badge-brand'   },
   PREPARING:        { label: 'Preparing',        badge: 'badge-brand'   },
+  ASSIGNED:         { label: 'Rider Assigned',   badge: 'badge-brand'   },
+  PICKED_UP:        { label: 'Picked Up',        badge: 'badge-success' },
   OUT_FOR_DELIVERY: { label: 'On the Way',       badge: 'badge-success' },
   DELIVERED:        { label: 'Delivered',        badge: 'badge-success' },
   CANCELLED:        { label: 'Cancelled',        badge: 'badge-danger'  }
 };
 
 const ORDER_STATUS_RANK: OrderStatus[] = [
-  'PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'
+  'PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'
 ];
 
 const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: string }[] = [
@@ -187,7 +189,7 @@ export function OrdersPage() {
 
                 <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
                   {isActive && (
-                    <Link to="/vendors" className="btn-primary" style={{ fontSize: '0.875rem' }}>
+                    <Link to={`/tracking/${order.orderId}`} className="btn-primary" style={{ fontSize: '0.875rem' }}>
                       🗺️ Track Delivery
                     </Link>
                   )}

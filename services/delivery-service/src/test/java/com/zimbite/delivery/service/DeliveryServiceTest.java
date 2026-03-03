@@ -16,6 +16,7 @@ import com.zimbite.delivery.model.dto.DeliveryTrackingResponse;
 import com.zimbite.delivery.model.dto.UpdateDeliveryLocationRequest;
 import com.zimbite.delivery.model.entity.DeliveryEntity;
 import com.zimbite.delivery.model.entity.OrderDeliverySnapshotEntity;
+import com.zimbite.delivery.repository.ChatMessageRepository;
 import com.zimbite.delivery.repository.DeliveryLocationRepository;
 import com.zimbite.delivery.repository.DeliveryRepository;
 import com.zimbite.delivery.repository.OrderDeliverySnapshotRepository;
@@ -48,6 +49,9 @@ class DeliveryServiceTest {
   @Mock
   private OrderDeliverySnapshotRepository orderDeliverySnapshotRepository;
 
+  @Mock
+  private ChatMessageRepository chatMessageRepository;
+
   private DeliveryService deliveryService;
 
   @BeforeEach
@@ -56,6 +60,7 @@ class DeliveryServiceTest {
         deliveryRepository,
         locationRepository,
         orderDeliverySnapshotRepository,
+        chatMessageRepository,
         kafkaTemplate,
         new ObjectMapper().findAndRegisterModules(),
         900L,       // maxLocationAgeSeconds

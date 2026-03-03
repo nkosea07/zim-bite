@@ -6,9 +6,20 @@ spring:
   datasource:
     username: ${POSTGRES_USER:zimbite}
     password: ${POSTGRES_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
   jpa:
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          "[batch_size]": 25
+        "[order_inserts]": true
+        "[order_updates]": true
   flyway:
     enabled: true
     locations: classpath:db/migration

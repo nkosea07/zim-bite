@@ -55,6 +55,19 @@ export type Address = {
 
 export type AddressPayload = Omit<Address, 'id'>;
 
+export type DeliveryTracking = {
+  deliveryId: string;
+  orderId: string;
+  status: string;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  estimatedArrival?: string | null;
+  currentLatitude?: number | null;
+  currentLongitude?: number | null;
+  deliveryLatitude?: number | null;
+  deliveryLongitude?: number | null;
+};
+
 export type PaymentResponse = {
   paymentId: string;
   orderId: string;
@@ -159,5 +172,8 @@ export const zimbiteApi = {
       method: 'POST',
       headers: { 'Idempotency-Key': `ui-${payload.orderId}` },
       body: JSON.stringify(payload)
-    })
+    }),
+
+  getDeliveryTracking: (orderId: string) =>
+    apiRequest<DeliveryTracking>(`/deliveries/orders/${orderId}/tracking`, { method: 'GET' })
 };

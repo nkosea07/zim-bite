@@ -7,6 +7,7 @@ import { CheckoutPage } from '../pages/checkout/CheckoutPage';
 import { HomePage } from '../pages/home/HomePage';
 import { MealBuilderPage } from '../pages/meal-builder/MealBuilderPage';
 import { OrdersPage } from '../pages/orders/OrdersPage';
+import { DeliveryTrackingPage } from '../pages/tracking/DeliveryTrackingPage';
 import { VendorPage } from '../pages/vendor/VendorPage';
 
 export const router = createBrowserRouter([
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: 'cart',               element: <CartPage /> },
       { path: 'checkout',           element: <CheckoutPage /> },
       { path: 'orders',             element: <OrdersPage /> },
+      { path: 'tracking/:orderId',  element: <DeliveryTrackingPage /> },
       { path: 'auth/login',         element: <LoginPage /> },
       { path: 'account',            element: <AccountPage /> },
       /* Legacy redirect */

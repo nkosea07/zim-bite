@@ -6,10 +6,13 @@ import com.zimbite.menu.model.dto.MenuItemResponse;
 import com.zimbite.menu.model.dto.UpdateMenuItemRequest;
 import com.zimbite.menu.model.entity.MenuItemEntity;
 import com.zimbite.menu.repository.MenuItemRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,23 +24,26 @@ public class MenuCatalogService {
     this.menuItemRepository = menuItemRepository;
   }
 
-  @Transactional
+  @Cacheable(value = "menu-items", key = "#vendorId")
   public List<MenuItemResponse> listByVendor(UUID vendorId) {
     return menuItemRepository.findByVendorId(vendorId).stream().map(this::toResponse).toList();
   }
 
-  @Transactional
+  @Cacheable(value = "menu-categories", key = "#vendorId")
   public List<CategoryResponse> listCategories(UUID vendorId) {
     return menuItemRepository.findDistinctCategoriesByVendorId(vendorId).stream()
         .map(CategoryResponse::new)
         .toList();
   }
 
-  @Transactional
   public MenuItemResponse getById(UUID itemId) {
     return menuItemRepository.findById(itemId).map(this::toResponse).orElse(null);
   }
 
+  @Caching(evict = {
+      @CacheEvict(value = "menu-items", key = "#vendorId"),
+      @CacheEvict(value = "menu-categories", key = "#vendorId")
+  })
   @Transactional
   public MenuItemResponse create(UUID vendorId, CreateMenuItemRequest request) {
     MenuItemEntity item = new MenuItemEntity();
@@ -52,6 +58,10 @@ public class MenuCatalogService {
     return toResponse(menuItemRepository.save(item));
   }
 
+  @Caching(evict = {
+      @CacheEvict(value = "menu-items", allEntries = true),
+      @CacheEvict(value = "menu-categories", allEntries = true)
+  })
   @Transactional
   public MenuItemResponse update(UUID itemId, UpdateMenuItemRequest request) {
     MenuItemEntity item = menuItemRepository.findById(itemId).orElse(null);
@@ -73,6 +83,10 @@ public class MenuCatalogService {
     return toResponse(menuItemRepository.save(item));
   }
 
+  @Caching(evict = {
+      @CacheEvict(value = "menu-items", allEntries = true),
+      @CacheEvict(value = "menu-categories", allEntries = true)
+  })
   @Transactional
   public MenuItemResponse updateAvailability(UUID itemId, boolean available) {
     MenuItemEntity item = menuItemRepository.findById(itemId).orElse(null);

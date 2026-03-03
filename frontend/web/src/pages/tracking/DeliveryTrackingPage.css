@@ -1,0 +1,167 @@
+.tracking-page {
+  position: relative;
+  height: calc(100vh - var(--topbar-h));
+  margin: calc(-1 * var(--space-6));
+  overflow: hidden;
+}
+
+.tracking-map {
+  position: absolute;
+  inset: 0;
+}
+
+.tracking-map .leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+.tracking-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  padding: var(--space-5) var(--space-6);
+  max-height: 50vh;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.tracking-panel-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  margin: 0 auto var(--space-4);
+}
+
+.tracking-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.tracking-status-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.tracking-eta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.tracking-eta-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--brand-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.tracking-eta-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.tracking-eta-time {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.tracking-eta-mins {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.tracking-driver {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.tracking-driver-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.tracking-driver-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tracking-driver-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.tracking-driver-phone {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.tracking-call-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: rgba(34, 197, 94, 0.1);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: background var(--dur-fast);
+  flex-shrink: 0;
+}
+
+.tracking-call-btn:hover {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.tracking-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .tracking-panel {
+    left: auto;
+    right: var(--space-6);
+    bottom: var(--space-6);
+    width: 380px;
+    border-radius: var(--radius-xl);
+    max-height: calc(100vh - var(--topbar-h) - 48px);
+  }
+}

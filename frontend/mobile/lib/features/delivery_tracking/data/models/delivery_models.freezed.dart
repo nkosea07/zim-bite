@@ -29,6 +29,8 @@ mixin _$DeliveryTracking {
   DateTime? get estimatedArrival => throw _privateConstructorUsedError;
   double? get currentLatitude => throw _privateConstructorUsedError;
   double? get currentLongitude => throw _privateConstructorUsedError;
+  double? get deliveryLatitude => throw _privateConstructorUsedError;
+  double? get deliveryLongitude => throw _privateConstructorUsedError;
 
   /// Serializes this DeliveryTracking to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -56,6 +58,8 @@ abstract class $DeliveryTrackingCopyWith<$Res> {
     DateTime? estimatedArrival,
     double? currentLatitude,
     double? currentLongitude,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
   });
 }
 
@@ -82,6 +86,8 @@ class _$DeliveryTrackingCopyWithImpl<$Res, $Val extends DeliveryTracking>
     Object? estimatedArrival = freezed,
     Object? currentLatitude = freezed,
     Object? currentLongitude = freezed,
+    Object? deliveryLatitude = freezed,
+    Object? deliveryLongitude = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -117,6 +123,14 @@ class _$DeliveryTrackingCopyWithImpl<$Res, $Val extends DeliveryTracking>
                 ? _value.currentLongitude
                 : currentLongitude // ignore: cast_nullable_to_non_nullable
                       as double?,
+            deliveryLatitude: freezed == deliveryLatitude
+                ? _value.deliveryLatitude
+                : deliveryLatitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            deliveryLongitude: freezed == deliveryLongitude
+                ? _value.deliveryLongitude
+                : deliveryLongitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
           )
           as $Val,
     );
@@ -141,6 +155,8 @@ abstract class _$$DeliveryTrackingImplCopyWith<$Res>
     DateTime? estimatedArrival,
     double? currentLatitude,
     double? currentLongitude,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
   });
 }
 
@@ -166,6 +182,8 @@ class __$$DeliveryTrackingImplCopyWithImpl<$Res>
     Object? estimatedArrival = freezed,
     Object? currentLatitude = freezed,
     Object? currentLongitude = freezed,
+    Object? deliveryLatitude = freezed,
+    Object? deliveryLongitude = freezed,
   }) {
     return _then(
       _$DeliveryTrackingImpl(
@@ -201,6 +219,14 @@ class __$$DeliveryTrackingImplCopyWithImpl<$Res>
             ? _value.currentLongitude
             : currentLongitude // ignore: cast_nullable_to_non_nullable
                   as double?,
+        deliveryLatitude: freezed == deliveryLatitude
+            ? _value.deliveryLatitude
+            : deliveryLatitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        deliveryLongitude: freezed == deliveryLongitude
+            ? _value.deliveryLongitude
+            : deliveryLongitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
       ),
     );
   }
@@ -218,6 +244,8 @@ class _$DeliveryTrackingImpl implements _DeliveryTracking {
     this.estimatedArrival,
     this.currentLatitude,
     this.currentLongitude,
+    this.deliveryLatitude,
+    this.deliveryLongitude,
   });
 
   factory _$DeliveryTrackingImpl.fromJson(Map<String, dynamic> json) =>
@@ -239,10 +267,14 @@ class _$DeliveryTrackingImpl implements _DeliveryTracking {
   final double? currentLatitude;
   @override
   final double? currentLongitude;
+  @override
+  final double? deliveryLatitude;
+  @override
+  final double? deliveryLongitude;
 
   @override
   String toString() {
-    return 'DeliveryTracking(deliveryId: $deliveryId, orderId: $orderId, status: $status, driverName: $driverName, driverPhone: $driverPhone, estimatedArrival: $estimatedArrival, currentLatitude: $currentLatitude, currentLongitude: $currentLongitude)';
+    return 'DeliveryTracking(deliveryId: $deliveryId, orderId: $orderId, status: $status, driverName: $driverName, driverPhone: $driverPhone, estimatedArrival: $estimatedArrival, currentLatitude: $currentLatitude, currentLongitude: $currentLongitude, deliveryLatitude: $deliveryLatitude, deliveryLongitude: $deliveryLongitude)';
   }
 
   @override
@@ -263,7 +295,11 @@ class _$DeliveryTrackingImpl implements _DeliveryTracking {
             (identical(other.currentLatitude, currentLatitude) ||
                 other.currentLatitude == currentLatitude) &&
             (identical(other.currentLongitude, currentLongitude) ||
-                other.currentLongitude == currentLongitude));
+                other.currentLongitude == currentLongitude) &&
+            (identical(other.deliveryLatitude, deliveryLatitude) ||
+                other.deliveryLatitude == deliveryLatitude) &&
+            (identical(other.deliveryLongitude, deliveryLongitude) ||
+                other.deliveryLongitude == deliveryLongitude));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -278,6 +314,8 @@ class _$DeliveryTrackingImpl implements _DeliveryTracking {
     estimatedArrival,
     currentLatitude,
     currentLongitude,
+    deliveryLatitude,
+    deliveryLongitude,
   );
 
   /// Create a copy of DeliveryTracking
@@ -307,6 +345,8 @@ abstract class _DeliveryTracking implements DeliveryTracking {
     final DateTime? estimatedArrival,
     final double? currentLatitude,
     final double? currentLongitude,
+    final double? deliveryLatitude,
+    final double? deliveryLongitude,
   }) = _$DeliveryTrackingImpl;
 
   factory _DeliveryTracking.fromJson(Map<String, dynamic> json) =
@@ -328,6 +368,10 @@ abstract class _DeliveryTracking implements DeliveryTracking {
   double? get currentLatitude;
   @override
   double? get currentLongitude;
+  @override
+  double? get deliveryLatitude;
+  @override
+  double? get deliveryLongitude;
 
   /// Create a copy of DeliveryTracking
   /// with the given fields replaced by the non-null parameter values.

@@ -11,6 +11,9 @@ import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +30,8 @@ public class VendorService {
         this.vendorRepository = vendorRepository;
     }
 
+    @Cacheable(value = "vendors", key = "#lat + ':' + #lng + ':' + #radiusKm",
+               condition = "#lat != null && #lng != null")
     public List<VendorResponse> list(Double lat, Double lng, Double radiusKm) {
         List<VendorEntity> vendors = vendorRepository.findByActiveTrue();
         if (lat == null || lng == null) {
@@ -42,6 +47,7 @@ public class VendorService {
                 .toList();
     }
 
+    @Cacheable(value = "vendor", key = "#vendorId")
     public VendorResponse getById(UUID vendorId) {
         return vendorRepository.findById(vendorId)
                 .map(this::toResponse)
@@ -49,6 +55,7 @@ public class VendorService {
     }
 
     @Transactional
+    @CacheEvict(value = "vendors", allEntries = true)
     public VendorResponse create(CreateVendorRequest request) {
         String slug = request.name().toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
         if (vendorRepository.findBySlug(slug).isPresent()) {
@@ -79,6 +86,10 @@ public class VendorService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "vendors", allEntries = true),
+        @CacheEvict(value = "vendor", key = "#vendorId")
+    })
     public VendorResponse update(UUID vendorId, UpdateVendorRequest request) {
         VendorEntity vendor = vendorRepository.findById(vendorId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));

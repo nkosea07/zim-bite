@@ -14,6 +14,8 @@ class DeliveryTracking with _$DeliveryTracking {
     DateTime? estimatedArrival,
     double? currentLatitude,
     double? currentLongitude,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
   }) = _DeliveryTracking;
 
   factory DeliveryTracking.fromJson(Map<String, dynamic> json) =>

@@ -220,7 +220,7 @@ export function CheckoutPage() {
                                 {formatAddressLine(addr)}
                               </p>
                               <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'var(--muted)', marginTop: 2 }}>
-                                📌 {addr.latitude.toFixed(4)}, {addr.longitude.toFixed(4)}
+                                📌 {addr.latitude.toFixed(5)}, {addr.longitude.toFixed(5)}
                               </p>
                             </div>
                           </button>
@@ -341,7 +341,7 @@ export function CheckoutPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
                     <span className="text-muted">Coordinates</span>
                     <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--muted)' }}>
-                      {selectedAddress.latitude.toFixed(4)}, {selectedAddress.longitude.toFixed(4)}
+                      {selectedAddress.latitude.toFixed(5)}, {selectedAddress.longitude.toFixed(5)}
                     </span>
                   </div>
                 )}

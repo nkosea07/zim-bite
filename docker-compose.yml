@@ -163,8 +163,11 @@ services:
       - "8083:8083"
     environment:
       <<: *common-env
+      REDIS_HOST: redis
     depends_on:
       <<: *db-depends
+      redis:
+        condition: service_healthy
 
   menu-service:
     <<: *svc
@@ -175,8 +178,11 @@ services:
       - "8084:8084"
     environment:
       <<: *common-env
+      REDIS_HOST: redis
     depends_on:
       <<: *db-depends
+      redis:
+        condition: service_healthy
 
   meal-builder-service:
     <<: *svc

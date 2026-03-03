@@ -27,6 +27,7 @@ class AppMap extends StatelessWidget {
   final List<MapPin> pins;
   final double zoom;
   final bool showMyLocation;
+  final void Function(MapCoordinate)? onTap;
 
   const AppMap({
     super.key,
@@ -34,6 +35,7 @@ class AppMap extends StatelessWidget {
     this.pins = const [],
     this.zoom = 14,
     this.showMyLocation = false,
+    this.onTap,
   });
 
   @override
@@ -42,6 +44,10 @@ class AppMap extends StatelessWidget {
       options: MapOptions(
         initialCenter: latlng.LatLng(center.latitude, center.longitude),
         initialZoom: zoom,
+        onTap: onTap != null
+            ? (_, point) => onTap!(MapCoordinate(
+                latitude: point.latitude, longitude: point.longitude))
+            : null,
       ),
       children: [
         TileLayer(

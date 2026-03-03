@@ -1,0 +1,567 @@
+/* ── Builder Toolbar ───────────────────────────────── */
+.builder-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+
+/* ── Mode Toggle ───────────────────────────────────── */
+.mode-toggle {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  flex-shrink: 0;
+}
+.mode-toggle-btn {
+  padding: 6px 18px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.mode-toggle-btn.active {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(210, 77, 41, 0.25);
+}
+
+/* ── Meal Tabs ─────────────────────────────────────── */
+.meal-tabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.meal-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--surface-1);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.meal-tab:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.meal-tab--active {
+  background: var(--brand-tint);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.meal-tab--add {
+  border-style: dashed;
+  color: var(--text-muted);
+}
+.meal-tab--add:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.meal-tab--add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.meal-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.meal-tab-close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+.meal-tab-label {
+  cursor: text;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+.meal-tab-label:focus {
+  outline: 2px solid var(--brand);
+  background: #fff;
+}
+
+/* ── Classic Layout ────────────────────────────────── */
+.meal-builder-layout {
+  display: grid;
+  gap: var(--space-6);
+  align-items: start;
+}
+.meal-builder-layout.classic {
+  grid-template-columns: 1fr 340px;
+}
+
+/* ══════════════════════════════════════════════════════
+   DRAG MODE LAYOUT
+   3 columns: ingredient tray | plate | summary
+   Everything fits in viewport — no scroll needed.
+   ══════════════════════════════════════════════════════ */
+.drag-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr 280px;
+  gap: var(--space-4);
+  align-items: start;
+  min-height: 0;
+}
+
+/* ── Ingredient Tray (left column) ─────────────────── */
+.ingredient-tray {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+  max-height: calc(100vh - var(--topbar-h) - 48px);
+  overflow-y: auto;
+}
+
+/* Category tabs — horizontal compact row */
+.cat-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+.cat-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+.cat-tab:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.cat-tab--active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.cat-tab-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.cat-tab-label {
+  line-height: 1;
+}
+
+/* Compact chip grid */
+.chip-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Ingredient Chip ───────────────────────────────── */
+.ingredient-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: grab;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.ingredient-chip:hover {
+  border-color: var(--brand);
+  box-shadow: 0 2px 8px rgba(210, 77, 41, 0.1);
+}
+.ingredient-chip:active {
+  cursor: grabbing;
+}
+.ingredient-chip--active {
+  border-color: var(--brand);
+  background: var(--brand-tint);
+}
+.ingredient-chip-emoji {
+  font-size: 1.3rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.ingredient-chip-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.ingredient-chip-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ingredient-chip-meta {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+.ingredient-chip-qty {
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ingredient-chip-btns {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.chip-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  padding: 0;
+  line-height: 1;
+}
+.chip-btn:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-tint);
+}
+.chip-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.chip-btn--add {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.chip-btn--add:hover {
+  background: var(--brand-hover, #c04426) !important;
+  border-color: var(--brand-hover, #c04426) !important;
+  color: #fff !important;
+}
+
+/* ── Plate Area (center column) ────────────────────── */
+.plate-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+}
+
+.plate-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.plate-stats strong {
+  color: var(--brand);
+  font-weight: 700;
+}
+.plate-stat-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+}
+
+/* ── Drag Summary (right column) ───────────────────── */
+.drag-summary {
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+}
+.drag-summary .panel {
+  padding: var(--space-4);
+}
+.drag-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.drag-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.drag-summary-item:last-child {
+  border-bottom: none;
+}
+
+/* ── Meal Plate ────────────────────────────────────── */
+.meal-plate {
+  position: relative;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 38% 35%,
+      rgba(255,255,255,0.9) 0%,
+      rgba(250,247,243,0.6) 60%,
+      rgba(235,228,218,0.35) 100%
+    );
+  border: 4px solid #d6cfc6;
+  box-shadow:
+    inset 0 2px 8px rgba(0,0,0,0.06),
+    0 4px 16px rgba(0,0,0,0.08),
+    0 1px 0 rgba(255,255,255,0.6) inset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.35s ease, height 0.35s ease,
+              border-color 0.25s ease, box-shadow 0.25s ease;
+  margin: 0 auto;
+}
+.meal-plate-rim {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid #c4bbb0;
+  pointer-events: none;
+}
+.meal-plate-ring {
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,0,0,0.06);
+  pointer-events: none;
+}
+
+/* Hover / drag-over glow */
+.meal-plate--active {
+  border-color: var(--brand);
+  box-shadow:
+    inset 0 2px 8px rgba(210,77,41,0.08),
+    0 0 0 4px rgba(210,77,41,0.12),
+    0 8px 24px rgba(210,77,41,0.15);
+}
+
+/* Empty state */
+.meal-plate--empty {
+  cursor: default;
+}
+.meal-plate-empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.meal-plate-empty-content .plate-emoji {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+.meal-plate-empty-content .plate-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 140px;
+  line-height: 1.4;
+}
+
+/* Items container */
+.meal-plate-items {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+/* ── Plate Ingredient ──────────────────────────────── */
+.plate-ingredient {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  cursor: default;
+  animation: plate-drop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 1;
+}
+.plate-ingredient:hover {
+  z-index: 10;
+}
+.plate-ingredient-emoji {
+  font-size: 1.9rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.18));
+}
+.plate-ingredient-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 1px;
+  white-space: nowrap;
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+}
+.plate-ingredient-qty {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  min-width: 20px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.plate-ingredient-remove {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.plate-ingredient:hover .plate-ingredient-remove {
+  opacity: 1;
+}
+
+/* ── Drag Ghost ────────────────────────────────────── */
+.drag-ghost {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  font-weight: 600;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+.drag-ghost-emoji {
+  font-size: 1.5rem;
+}
+
+/* ── Drop Animation ────────────────────────────────── */
+@keyframes plate-drop {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.5; }
+  70% { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* ── Dragging state on source card ─────────────────── */
+.component-card.dragging {
+  opacity: 0.4;
+}
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .drag-layout {
+    grid-template-columns: 220px 1fr 240px;
+    gap: var(--space-3);
+  }
+}
+@media (max-width: 960px) {
+  .drag-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .ingredient-tray {
+    position: static;
+    max-height: none;
+  }
+  .plate-area {
+    position: static;
+  }
+  .drag-summary {
+    position: static;
+  }
+  .meal-plate {
+    max-width: 280px !important;
+    max-height: 280px !important;
+  }
+  .cat-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+}
+@media (max-width: 760px) {
+  .meal-builder-layout.classic {
+    grid-template-columns: 1fr;
+  }
+  .builder-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .meal-plate {
+    max-width: 240px !important;
+    max-height: 240px !important;
+  }
+  .plate-ingredient-label {
+    display: none;
+  }
+}

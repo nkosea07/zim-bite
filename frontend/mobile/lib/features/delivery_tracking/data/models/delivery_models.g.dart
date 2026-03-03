@@ -19,6 +19,8 @@ _$DeliveryTrackingImpl _$$DeliveryTrackingImplFromJson(
       : DateTime.parse(json['estimatedArrival'] as String),
   currentLatitude: (json['currentLatitude'] as num?)?.toDouble(),
   currentLongitude: (json['currentLongitude'] as num?)?.toDouble(),
+  deliveryLatitude: (json['deliveryLatitude'] as num?)?.toDouble(),
+  deliveryLongitude: (json['deliveryLongitude'] as num?)?.toDouble(),
 );
 
 Map<String, dynamic> _$$DeliveryTrackingImplToJson(
@@ -32,4 +34,6 @@ Map<String, dynamic> _$$DeliveryTrackingImplToJson(
   'estimatedArrival': instance.estimatedArrival?.toIso8601String(),
   'currentLatitude': instance.currentLatitude,
   'currentLongitude': instance.currentLongitude,
+  'deliveryLatitude': instance.deliveryLatitude,
+  'deliveryLongitude': instance.deliveryLongitude,
 };

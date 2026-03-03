@@ -420,7 +420,7 @@ class _PaymentMethodCard extends StatelessWidget {
 }
 
 class _CheckoutOrderSummary extends StatelessWidget {
-  static const double _deliveryFee = 2.00;
+  static const double _deliveryFee = 1.50;
 
   const _CheckoutOrderSummary();
 
