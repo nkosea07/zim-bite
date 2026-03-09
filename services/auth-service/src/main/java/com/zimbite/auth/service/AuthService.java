@@ -19,6 +19,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +68,10 @@ public class AuthService {
         this.otpDevStaticCode = otpDevStaticCode;
     }
 
+    private static final Set<String> SELF_REGISTERABLE_ROLES = Set.of(
+        Role.CUSTOMER.name(), Role.VENDOR_ADMIN.name(), Role.RIDER.name()
+    );
+
     @Transactional
     public void register(RegisterRequest request) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
@@ -74,6 +79,16 @@ public class AuthService {
         }
         if (userRepository.findByPhoneNumber(request.phoneNumber()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already registered");
+        }
+
+        String resolvedRole = Role.CUSTOMER.name();
+        if (request.role() != null && !request.role().isBlank()) {
+            String requested = request.role().trim().toUpperCase();
+            if (!SELF_REGISTERABLE_ROLES.contains(requested)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Role '" + request.role() + "' cannot be self-registered");
+            }
+            resolvedRole = requested;
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -84,7 +99,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
-        user.setRole(Role.CUSTOMER.name());
+        user.setRole(resolvedRole);
         user.setStatus("ACTIVE");
         user.setCreatedAt(now);
         user.setUpdatedAt(now);

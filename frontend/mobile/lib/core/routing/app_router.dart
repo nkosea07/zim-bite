@@ -26,6 +26,16 @@ import '../../features/rider/presentation/screens/rider_dashboard_screen.dart';
 import '../../features/rider/presentation/screens/active_delivery_screen.dart';
 import '../../features/rider/presentation/screens/rider_chat_screen.dart';
 import '../../features/rider/presentation/screens/rider_earnings_screen.dart';
+import '../../features/vendor_dashboard/presentation/screens/vendor_dashboard_screen.dart';
+import '../../features/vendor_dashboard/presentation/screens/vendor_setup_screen.dart';
+import '../../features/vendor_dashboard/bloc/vendor_dashboard_bloc.dart';
+import '../../features/vendor_dashboard/data/repositories/vendor_dashboard_repository.dart';
+import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
+import '../../features/admin_dashboard/bloc/admin_dashboard_bloc.dart';
+import '../../features/admin_dashboard/data/repositories/admin_dashboard_repository.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../network/dio_client.dart';
+import '../network/api_endpoints.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -37,6 +47,13 @@ class AppRouter {
   String? _userRole;
 
   AppRouter(AuthBloc authBloc, TokenStorage tokenStorage) {
+    // Eagerly load role from current auth state
+    if (authBloc.state is AuthAuthenticated) {
+      tokenStorage.getRole().then((role) {
+        _userRole = role;
+      });
+    }
+
     // Listen to auth state changes to cache the role synchronously for redirect
     authBloc.stream.listen((state) async {
       if (state is AuthAuthenticated) {
@@ -44,6 +61,7 @@ class AppRouter {
         router.refresh();
       } else {
         _userRole = null;
+        router.refresh();
       }
     });
 
@@ -54,17 +72,40 @@ class AppRouter {
         final authState = authBloc.state;
         final isAuthRoute = state.matchedLocation.startsWith('/auth');
         final isRiderRoute = state.matchedLocation.startsWith('/rider');
+        final isVendorRoute = state.matchedLocation.startsWith('/vendor');
+        final isAdminRoute = state.matchedLocation.startsWith('/admin');
 
         if (authState is! AuthAuthenticated && !isAuthRoute) {
           return '/auth/login';
         }
         if (authState is AuthAuthenticated && isAuthRoute) {
-          return _userRole == 'RIDER' ? '/rider/dashboard' : '/home';
+          switch (_userRole) {
+            case 'RIDER':
+              return '/rider/dashboard';
+            case 'VENDOR_ADMIN':
+              return '/vendor/dashboard';
+            case 'SYSTEM_ADMIN':
+              return '/admin/dashboard';
+            default:
+              return '/home';
+          }
         }
         // Prevent non-riders from accessing rider routes
         if (authState is AuthAuthenticated &&
             isRiderRoute &&
             _userRole != 'RIDER') {
+          return '/home';
+        }
+        // Prevent non-vendors from accessing vendor routes
+        if (authState is AuthAuthenticated &&
+            isVendorRoute &&
+            _userRole != 'VENDOR_ADMIN') {
+          return '/home';
+        }
+        // Prevent non-admins from accessing admin routes
+        if (authState is AuthAuthenticated &&
+            isAdminRoute &&
+            _userRole != 'SYSTEM_ADMIN') {
           return '/home';
         }
         return null;
@@ -231,8 +272,115 @@ class AppRouter {
           name: RouteNames.riderEarnings,
           builder: (context, state) => const RiderEarningsScreen(),
         ),
+
+        // Vendor dashboard routes
+        GoRoute(
+          path: '/vendor/dashboard',
+          name: RouteNames.vendorDashboard,
+          builder: (context, state) {
+            final dioInstance = RepositoryProvider.of<DioClient>(context).dio;
+            return BlocProvider(
+              create: (_) => VendorDashboardBloc(
+                VendorDashboardRepository(dioInstance),
+              ),
+              child: const _VendorDashboardRouter(),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/vendor/setup',
+          name: RouteNames.vendorSetup,
+          builder: (context, state) {
+            final dioInstance = RepositoryProvider.of<DioClient>(context).dio;
+            return BlocProvider(
+              create: (_) => VendorDashboardBloc(
+                VendorDashboardRepository(dioInstance),
+              ),
+              child: VendorSetupScreen(
+                onCreated: (vendorId) =>
+                    GoRouter.of(context).go('/vendor/dashboard'),
+              ),
+            );
+          },
+        ),
+
+        // Admin dashboard routes
+        GoRoute(
+          path: '/admin/dashboard',
+          name: RouteNames.adminDashboard,
+          builder: (context, state) {
+            final dioInstance = RepositoryProvider.of<DioClient>(context).dio;
+            return BlocProvider(
+              create: (_) => AdminDashboardBloc(
+                AdminDashboardRepository(dioInstance),
+              ),
+              child: const AdminDashboardScreen(),
+            );
+          },
+        ),
       ],
     );
+  }
+}
+
+/// Checks if the vendor has a vendorId stored; if not, redirects to setup.
+class _VendorDashboardRouter extends StatefulWidget {
+  const _VendorDashboardRouter();
+
+  @override
+  State<_VendorDashboardRouter> createState() => _VendorDashboardRouterState();
+}
+
+class _VendorDashboardRouterState extends State<_VendorDashboardRouter> {
+  String? _vendorId;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _lookupVendor();
+  }
+
+  Future<void> _lookupVendor() async {
+    try {
+      final dio = RepositoryProvider.of<DioClient>(context).dio;
+      final response = await dio.get(ApiEndpoints.vendors);
+      final vendors = response.data as List;
+      if (vendors.isNotEmpty) {
+        setState(() {
+          _vendorId = vendors[0]['id'] as String;
+          _loading = false;
+        });
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_vendorId == null || _vendorId!.isEmpty) {
+      return BlocProvider(
+        create: (_) => VendorDashboardBloc(
+          VendorDashboardRepository(
+            RepositoryProvider.of<DioClient>(context).dio,
+          ),
+        ),
+        child: VendorSetupScreen(
+          onCreated: (vendorId) {
+            setState(() => _vendorId = vendorId);
+          },
+        ),
+      );
+    }
+    return VendorDashboardScreen(vendorId: _vendorId!);
   }
 }
 

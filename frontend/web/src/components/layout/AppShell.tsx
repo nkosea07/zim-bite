@@ -4,11 +4,32 @@ import { useCartStore } from '../../app/store/cartStore';
 import { useAuthStore } from '../../app/store/authStore';
 import { ToastContainer } from '../ui/Toast';
 
+function dashboardPath(role: string | null): string {
+  switch (role) {
+    case 'VENDOR_ADMIN': return '/vendor-dashboard';
+    case 'SYSTEM_ADMIN': return '/admin-dashboard';
+    case 'RIDER':        return '/rider-dashboard';
+    default:             return '/account';
+  }
+}
+
+function dashboardLabel(role: string | null): string {
+  switch (role) {
+    case 'VENDOR_ADMIN': return 'Dashboard';
+    case 'SYSTEM_ADMIN': return 'Dashboard';
+    case 'RIDER':        return 'Dashboard';
+    default:             return 'Account';
+  }
+}
+
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const itemCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
-  const { userId, clearSession } = useAuthStore();
+  const { userId, role, clearSession } = useAuthStore();
   const navigate = useNavigate();
+
+  const isCustomer = !role || role === 'CUSTOMER';
+  const showCart = isCustomer;
 
   function handleSignOut() {
     clearSession();
@@ -24,23 +45,29 @@ export function AppShell() {
         </Link>
 
         <nav className="topbar-nav">
-          <NavLink to="/vendors">Vendors</NavLink>
-          <NavLink to="/meal-builder">Meal Builder</NavLink>
-          <NavLink to="/orders">Orders</NavLink>
+          {isCustomer && (
+            <>
+              <NavLink to="/vendors">Vendors</NavLink>
+              <NavLink to="/meal-builder">Meal Builder</NavLink>
+              <NavLink to="/orders">Orders</NavLink>
+            </>
+          )}
           {userId ? (
-            <NavLink to="/account">Account</NavLink>
+            <NavLink to={dashboardPath(role)}>{dashboardLabel(role)}</NavLink>
           ) : (
             <NavLink to="/auth/login">Sign In</NavLink>
           )}
         </nav>
 
         <div className="topbar-actions">
-          <Link to="/cart" className="cart-btn">
-            <span>🛒</span>
-            {itemCount > 0 && (
-              <span className="cart-badge">{itemCount}</span>
-            )}
-          </Link>
+          {showCart && (
+            <Link to="/cart" className="cart-btn">
+              <span>🛒</span>
+              {itemCount > 0 && (
+                <span className="cart-badge">{itemCount}</span>
+              )}
+            </Link>
+          )}
           <button
             className={`hamburger-btn${menuOpen ? ' open' : ''}`}
             onClick={() => setMenuOpen((o) => !o)}
@@ -54,13 +81,19 @@ export function AppShell() {
       </header>
 
       <nav className={`mobile-nav${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)}>
-        <NavLink to="/vendors">🏪 Vendors</NavLink>
-        <NavLink to="/meal-builder">🍳 Meal Builder</NavLink>
-        <NavLink to="/cart">🛒 Cart {itemCount > 0 ? `(${itemCount})` : ''}</NavLink>
-        <NavLink to="/orders">📋 Orders</NavLink>
+        {isCustomer && (
+          <>
+            <NavLink to="/vendors">🏪 Vendors</NavLink>
+            <NavLink to="/meal-builder">🍳 Meal Builder</NavLink>
+            <NavLink to="/cart">🛒 Cart {itemCount > 0 ? `(${itemCount})` : ''}</NavLink>
+            <NavLink to="/orders">📋 Orders</NavLink>
+          </>
+        )}
         {userId ? (
           <>
-            <NavLink to="/account">👤 Account</NavLink>
+            <NavLink to={dashboardPath(role)}>
+              {role === 'VENDOR_ADMIN' ? '🏪' : role === 'RIDER' ? '🚴' : role === 'SYSTEM_ADMIN' ? '🔧' : '👤'} {dashboardLabel(role)}
+            </NavLink>
             <button
               className="btn-ghost"
               style={{ textAlign: 'left', paddingLeft: 'var(--space-4)' }}

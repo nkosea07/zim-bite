@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: ZimBite Subscription Service API
+  version: 1.0.0
+servers:
+  - url: /api/v1/subscriptions
+security:
+  - BearerAuth: []
+paths:
+  /:
+    get:
+      summary: List subscriptions for current user
+      responses:
+        '200':
+          description: Subscription list
+    post:
+      summary: Create a new subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '201':
+          description: Subscription created
+  /{subscriptionId}:
+    get:
+      summary: Get subscription details
+      parameters:
+        - in: path
+          name: subscriptionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subscription details
+    patch:
+      summary: Update subscription
+      parameters:
+        - in: path
+          name: subscriptionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subscription updated
+  /{subscriptionId}/cancel:
+    post:
+      summary: Cancel a subscription
+      parameters:
+        - in: path
+          name: subscriptionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subscription cancelled
+components:
+  schemas:
+    CreateSubscriptionRequest:
+      type: object
+      required:
+        - vendorId
+        - planType
+      properties:
+        vendorId:
+          type: string
+          format: uuid
+        planType:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY]
+        deliveryAddressId:
+          type: string
+          format: uuid
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

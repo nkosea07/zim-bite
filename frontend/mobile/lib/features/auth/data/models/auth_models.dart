@@ -55,6 +55,7 @@ class RegisterRequest with _$RegisterRequest {
     required String email,
     required String phoneNumber,
     required String password,
+    String? role,
   }) = _RegisterRequest;
   factory RegisterRequest.fromJson(Map<String, dynamic> json) =>
       _$RegisterRequestFromJson(json);

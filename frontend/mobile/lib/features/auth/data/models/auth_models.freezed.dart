@@ -834,6 +834,7 @@ mixin _$RegisterRequest {
   String get email => throw _privateConstructorUsedError;
   String get phoneNumber => throw _privateConstructorUsedError;
   String get password => throw _privateConstructorUsedError;
+  String? get role => throw _privateConstructorUsedError;
 
   /// Serializes this RegisterRequest to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -858,6 +859,7 @@ abstract class $RegisterRequestCopyWith<$Res> {
     String email,
     String phoneNumber,
     String password,
+    String? role,
   });
 }
 
@@ -881,6 +883,7 @@ class _$RegisterRequestCopyWithImpl<$Res, $Val extends RegisterRequest>
     Object? email = null,
     Object? phoneNumber = null,
     Object? password = null,
+    Object? role = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -904,6 +907,10 @@ class _$RegisterRequestCopyWithImpl<$Res, $Val extends RegisterRequest>
                 ? _value.password
                 : password // ignore: cast_nullable_to_non_nullable
                       as String,
+            role: freezed == role
+                ? _value.role
+                : role // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -925,6 +932,7 @@ abstract class _$$RegisterRequestImplCopyWith<$Res>
     String email,
     String phoneNumber,
     String password,
+    String? role,
   });
 }
 
@@ -947,6 +955,7 @@ class __$$RegisterRequestImplCopyWithImpl<$Res>
     Object? email = null,
     Object? phoneNumber = null,
     Object? password = null,
+    Object? role = freezed,
   }) {
     return _then(
       _$RegisterRequestImpl(
@@ -970,6 +979,10 @@ class __$$RegisterRequestImplCopyWithImpl<$Res>
             ? _value.password
             : password // ignore: cast_nullable_to_non_nullable
                   as String,
+        role: freezed == role
+            ? _value.role
+            : role // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -984,6 +997,7 @@ class _$RegisterRequestImpl implements _RegisterRequest {
     required this.email,
     required this.phoneNumber,
     required this.password,
+    this.role,
   });
 
   factory _$RegisterRequestImpl.fromJson(Map<String, dynamic> json) =>
@@ -999,10 +1013,12 @@ class _$RegisterRequestImpl implements _RegisterRequest {
   final String phoneNumber;
   @override
   final String password;
+  @override
+  final String? role;
 
   @override
   String toString() {
-    return 'RegisterRequest(firstName: $firstName, lastName: $lastName, email: $email, phoneNumber: $phoneNumber, password: $password)';
+    return 'RegisterRequest(firstName: $firstName, lastName: $lastName, email: $email, phoneNumber: $phoneNumber, password: $password, role: $role)';
   }
 
   @override
@@ -1018,7 +1034,8 @@ class _$RegisterRequestImpl implements _RegisterRequest {
             (identical(other.phoneNumber, phoneNumber) ||
                 other.phoneNumber == phoneNumber) &&
             (identical(other.password, password) ||
-                other.password == password));
+                other.password == password) &&
+            (identical(other.role, role) || other.role == role));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1030,6 +1047,7 @@ class _$RegisterRequestImpl implements _RegisterRequest {
     email,
     phoneNumber,
     password,
+    role,
   );
 
   /// Create a copy of RegisterRequest
@@ -1056,6 +1074,7 @@ abstract class _RegisterRequest implements RegisterRequest {
     required final String email,
     required final String phoneNumber,
     required final String password,
+    final String? role,
   }) = _$RegisterRequestImpl;
 
   factory _RegisterRequest.fromJson(Map<String, dynamic> json) =
@@ -1071,6 +1090,8 @@ abstract class _RegisterRequest implements RegisterRequest {
   String get phoneNumber;
   @override
   String get password;
+  @override
+  String? get role;
 
   /// Create a copy of RegisterRequest
   /// with the given fields replaced by the non-null parameter values.

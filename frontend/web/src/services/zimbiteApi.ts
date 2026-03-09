@@ -87,26 +87,139 @@ export type AuthSession = {
 
 export type OtpChallengeResponse = {
   challengeId: string;
-  maskedPhone: string;
-  expiresIn: number;
+  principal: string;
+  expiresAt: string;
+  attemptsRemaining: number;
+  status: string;
 };
 
 export type OtpVerifyRequest = {
-  challengeId: string;
+  principal: string;
   otp: string;
+};
+
+export type RegisterRequestPayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+  role?: string;
+};
+
+export type CreateVendorPayload = {
+  name: string;
+  description?: string;
+  phoneNumber: string;
+  email: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type VendorDetail = Vendor & {
+  description?: string;
+  phoneNumber?: string;
+  email?: string;
+  rating?: number;
+  totalOrders?: number;
+};
+
+export type VendorStats = {
+  ordersToday: number;
+  revenueToday: number;
+  rating: number;
+  totalOrders: number;
+};
+
+export type VendorDashboardAnalytics = {
+  weeklyOrders: { day: string; count: number }[];
+  weeklyRevenue: { day: string; amount: number }[];
+  topItems: { name: string; count: number }[];
+};
+
+export type AdminOverview = {
+  activeVendors: number;
+  activeRiders: number;
+  ordersToday: number;
+  revenueToday: number;
+  totalUsers: number;
+};
+
+export type RevenueData = {
+  period: string;
+  amount: number;
+};
+
+export type UserProfile = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  role: string;
+};
+
+export type FavoriteItem = MenuItem & {
+  vendorName: string;
+};
+
+export type Subscription = {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  planType: string;
+  status: string;
+  nextDeliveryDate?: string;
+};
+
+export type VendorReview = {
+  id: string;
+  customerId: string;
+  customerName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+};
+
+export type RiderDelivery = {
+  id: string;
+  orderId: string;
+  vendorName: string;
+  vendorAddress: string;
+  customerName: string;
+  customerAddress: string;
+  status: string;
+  estimatedEarning: number;
+  createdAt: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  senderRole: string;
+  content: string;
+  timestamp: string;
 };
 
 /* ── API client ───────────────────────────────────────────────── */
 
 export const zimbiteApi = {
-  /** Step 1 of OTP login: register/login phone → receive OTP */
-  sendOtp: (phone: string) =>
-    apiRequest<OtpChallengeResponse>('/auth/login', {
+  /** Register a new account */
+  register: (payload: RegisterRequestPayload) =>
+    apiRequest<{ status: string }>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ phone })
+      body: JSON.stringify(payload)
     }),
 
-  /** Step 2 of OTP login: verify code → receive tokens */
+  /** Step 1: login with principal (email/phone) + password → receive OTP challenge */
+  login: (principal: string, password: string) =>
+    apiRequest<OtpChallengeResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ principal, password })
+    }),
+
+  /** Step 2: verify OTP code → receive tokens */
   verifyOtp: async (payload: OtpVerifyRequest): Promise<AuthSession> => {
     const tokens = await apiRequest<{ accessToken: string; refreshToken: string; expiresIn: number }>(
       '/auth/verify-otp',
@@ -175,5 +288,92 @@ export const zimbiteApi = {
     }),
 
   getDeliveryTracking: (orderId: string) =>
-    apiRequest<DeliveryTracking>(`/deliveries/orders/${orderId}/tracking`, { method: 'GET' })
+    apiRequest<DeliveryTracking>(`/deliveries/orders/${orderId}/tracking`, { method: 'GET' }),
+
+  // ── Vendor CRUD ──────────────────────────────────────────────
+  createVendor: (payload: CreateVendorPayload) =>
+    apiRequest<VendorDetail>('/vendors', { method: 'POST', body: JSON.stringify(payload) }),
+
+  getVendor: (vendorId: string) =>
+    apiRequest<VendorDetail>(`/vendors/${vendorId}`, { method: 'GET' }),
+
+  updateVendor: (vendorId: string, payload: Partial<CreateVendorPayload>) =>
+    apiRequest<VendorDetail>(`/vendors/${vendorId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  getVendorStats: (vendorId: string) =>
+    apiRequest<VendorStats>(`/vendors/${vendorId}/stats`, { method: 'GET' }),
+
+  // ── Menu CRUD ────────────────────────────────────────────────
+  createMenuItem: (vendorId: string, payload: Omit<MenuItem, 'id' | 'vendorId'>) =>
+    apiRequest<MenuItem>(`/menu/vendors/${vendorId}/items`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateMenuItem: (vendorId: string, itemId: string, payload: Partial<MenuItem>) =>
+    apiRequest<MenuItem>(`/menu/items/${itemId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  toggleMenuItemAvailability: (vendorId: string, itemId: string, available: boolean) =>
+    apiRequest<MenuItem>(`/menu/items/${itemId}/availability`, {
+      method: 'PATCH',
+      body: JSON.stringify({ available })
+    }),
+
+  // ── User / Profile ───────────────────────────────────────────
+  getProfile: () =>
+    apiRequest<UserProfile>('/users/profile', { method: 'GET' }),
+
+  updateProfile: (payload: Partial<UserProfile>) =>
+    apiRequest<UserProfile>('/users/profile', { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  listFavorites: () =>
+    apiRequest<FavoriteItem[]>('/users/favorites', { method: 'GET' }),
+
+  getOrderHistory: () =>
+    apiRequest<OrderResponse[]>('/orders', { method: 'GET' }),
+
+  // ── Subscriptions ────────────────────────────────────────────
+  listSubscriptions: () =>
+    apiRequest<Subscription[]>('/subscriptions', { method: 'GET' }),
+
+  // ── Analytics ────────────────────────────────────────────────
+  getVendorDashboard: (vendorId: string) =>
+    apiRequest<VendorDashboardAnalytics>(`/analytics/vendor/${vendorId}/dashboard`, { method: 'GET' }),
+
+  getAdminOverview: () =>
+    apiRequest<AdminOverview>('/analytics/admin/overview', { method: 'GET' }),
+
+  getRevenueTrends: (from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    return apiRequest<RevenueData[]>(`/analytics/revenue${qs ? `?${qs}` : ''}`, { method: 'GET' });
+  },
+
+  // ── Reviews ──────────────────────────────────────────────────
+  getVendorReviews: (vendorId: string) =>
+    apiRequest<VendorReview[]>(`/vendors/${vendorId}/reviews`, { method: 'GET' }),
+
+  // ── Rider ────────────────────────────────────────────────────
+  getAvailableDeliveries: (lat: number, lng: number) => {
+    const params = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+    return apiRequest<RiderDelivery[]>(`/deliveries/rider/available?${params}`, { method: 'GET' });
+  },
+
+  acceptDelivery: (deliveryId: string) =>
+    apiRequest<RiderDelivery>(`/deliveries/${deliveryId}/accept`, { method: 'POST' }),
+
+  getActiveDeliveries: () =>
+    apiRequest<RiderDelivery[]>('/deliveries/rider/active', { method: 'GET' }),
+
+  updateDeliveryStatus: (deliveryId: string, status: string) =>
+    apiRequest<RiderDelivery>(`/deliveries/${deliveryId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    }),
+
+  getDeliveryChat: (deliveryId: string) =>
+    apiRequest<ChatMessage[]>(`/deliveries/${deliveryId}/chat`, { method: 'GET' }),
+
+  // ── Admin Vendors ────────────────────────────────────────────
+  listAllVendors: () =>
+    apiRequest<VendorDetail[]>('/vendors', { method: 'GET' })
 };

@@ -45,4 +45,11 @@ class RouteNames {
   static const riderDelivery = 'rider-delivery';
   static const riderChat = 'rider-chat';
   static const riderEarnings = 'rider-earnings';
+
+  // Vendor Dashboard
+  static const vendorDashboard = 'vendor-dashboard';
+  static const vendorSetup = 'vendor-setup';
+
+  // Admin Dashboard
+  static const adminDashboard = 'admin-dashboard';
 }

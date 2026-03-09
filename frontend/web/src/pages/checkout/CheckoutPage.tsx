@@ -74,35 +74,48 @@ export function CheckoutPage() {
     }
   });
 
+  // Track order ID so we can retry payment without duplicating the order
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       if (!auth.userId)                        throw new Error('Sign in to place an order.');
       if (!cart.vendorId || !cart.items.length) throw new Error('Your cart is empty.');
       if (!selectedAddress)                    throw new Error('Please select a delivery address.');
 
-      const order = await zimbiteApi.placeOrder({
-        vendorId:          cart.vendorId,
-        deliveryAddressId: selectedAddress.id,
-        currency:          cart.currency,
-        items:             cart.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
-        scheduledFor:      buildScheduledFor(scheduledTime)
-      });
+      // Reuse existing order on retry to avoid duplicates
+      let orderId = pendingOrderId;
+      let order;
+
+      if (!orderId) {
+        order = await zimbiteApi.placeOrder({
+          vendorId:          cart.vendorId,
+          deliveryAddressId: selectedAddress.id,
+          currency:          cart.currency,
+          items:             cart.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+          scheduledFor:      buildScheduledFor(scheduledTime)
+        });
+        orderId = order.orderId;
+        setPendingOrderId(orderId);
+      }
 
       const payment = await zimbiteApi.initiatePayment({
-        orderId:  order.orderId,
+        orderId,
         provider,
-        amount:   order.totalAmount,
-        currency: order.currency
+        amount:   order?.totalAmount ?? cart.total() + DELIVERY_FEE,
+        currency: order?.currency ?? cart.currency
       });
 
-      return { order, payment };
+      return { orderId, payment };
     },
-    onSuccess: ({ order }) => {
+    onSuccess: ({ orderId }) => {
       cart.clearCart();
-      toast.success('Order placed! 🎉', `Order #${order.orderId.slice(0, 8).toUpperCase()} is confirmed.`);
+      setPendingOrderId(null);
+      toast.success('Order placed!', `Order #${orderId.slice(0, 8).toUpperCase()} is confirmed.`);
       navigate('/orders');
     },
     onError: (err) => {
+      // Order was created but payment failed — user can retry without re-creating order
       toast.error('Checkout failed', err instanceof Error ? err.message : 'Please try again.');
     }
   });

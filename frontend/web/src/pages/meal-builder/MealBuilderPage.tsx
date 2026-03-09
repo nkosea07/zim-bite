@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { useCartStore } from '../../app/store/cartStore';
-import { zimbiteApi, type MealCalcResponse } from '../../services/zimbiteApi';
+import { zimbiteApi } from '../../services/zimbiteApi';
 import { toast } from '../../app/store/toastStore';
 import { MealTabs } from './MealTabs';
 import { MealPlate } from './MealPlate';
@@ -76,8 +76,8 @@ const ALL_COMPONENTS: CatalogComponent[] = [
   { componentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', label: 'Ginger Tea', emoji: '🍵', category: 'Drinks',   priceEach: 1.2,  calsEach: 5   },
 ];
 
-const BASE_PRICE = 3.0;
-const BASE_CALS  = 250;
+const BASE_PRICE = 0;
+const BASE_CALS  = 0;
 const MAX_MEALS  = 5;
 const MAX_PER_COMPONENT = 10;
 const MAX_ITEMS_PER_MEAL = 15;
@@ -123,6 +123,34 @@ function platePosition(index: number, total: number): { plateX: number; plateY: 
   };
 }
 
+/**
+ * Build the API calc payload from a meal's ingredients,
+ * applying a pending delta to one component.
+ */
+function buildCalcPayload(
+  meal: Meal,
+  componentId: string,
+  delta: number,
+) {
+  const result: Array<{ componentId: string; quantity: number }> = [];
+  let found = false;
+
+  for (const ing of meal.ingredients) {
+    if (ing.componentId === componentId) {
+      found = true;
+      const q = Math.max(0, Math.min(MAX_PER_COMPONENT, ing.quantity + delta));
+      if (q > 0) result.push({ componentId: ing.componentId, quantity: q });
+    } else {
+      result.push({ componentId: ing.componentId, quantity: ing.quantity });
+    }
+  }
+  if (!found && delta > 0) {
+    result.push({ componentId, quantity: 1 });
+  }
+
+  return { vendorId: VENDOR_ID, baseItemId: BASE_ITEM_ID, components: result };
+}
+
 /* ── Component ─────────────────────────────────────── */
 
 export function MealBuilderPage() {
@@ -131,6 +159,13 @@ export function MealBuilderPage() {
   const [mode, setMode] = useState<BuilderMode>('classic');
   const [dragId, setDragId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('Proteins');
+
+  // Ref keeps the latest index — avoids stale closures in callbacks
+  const activeIdxRef = useRef(activeMealIndex);
+  activeIdxRef.current = activeMealIndex;
+
+  const mealsRef = useRef(meals);
+  mealsRef.current = meals;
 
   const addItem = useCartStore((s) => s.addItem);
   const activeMeal = meals[activeMealIndex];
@@ -142,7 +177,7 @@ export function MealBuilderPage() {
   const keyboardSensor = useSensor(KeyboardSensor);
   const sensors = useSensors(pointerSensor, keyboardSensor);
 
-  // Ingredient quantities for the active meal (lookup by componentId)
+  // Ingredient quantities for the active meal
   const qtyMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const ing of activeMeal.ingredients) {
@@ -153,94 +188,65 @@ export function MealBuilderPage() {
 
   const totalQty = activeMeal.ingredients.reduce((s, i) => s + i.quantity, 0);
 
-  // Build the API payload for the active meal
-  const payload = useMemo(() => ({
-    vendorId: VENDOR_ID,
-    baseItemId: BASE_ITEM_ID,
-    components: activeMeal.ingredients
-      .filter((i) => i.quantity > 0)
-      .map((i) => ({ componentId: i.componentId, quantity: i.quantity })),
-  }), [activeMeal.ingredients]);
-
   const calcMutation = useMutation({
     mutationFn: zimbiteApi.calculateMeal,
     onSuccess: (data) => {
-      setMeals((prev) =>
-        prev.map((m, i) =>
-          i === activeMealIndex
+      // Use the vendorId/components from the request to identify which meal
+      // this response belongs to, but since we only ever calc the active meal
+      // we tag the mutation call and use the ref for safety.
+      setMeals((prev) => {
+        const idx = activeIdxRef.current;
+        return prev.map((m, i) =>
+          i === idx
             ? { ...m, totalPrice: data.totalPrice, totalCalories: data.estimatedCalories, available: data.available }
             : m
-        )
-      );
+        );
+      });
     },
   });
 
-  /* ── Adjust ingredient (scoped to active meal) ─── */
-  const adjust = useCallback(
-    (componentId: string, delta: number) => {
-      setMeals((prev) => {
-        const updated = [...prev];
-        const meal = { ...updated[activeMealIndex] };
-        const ingredients = [...meal.ingredients];
-        const idx = ingredients.findIndex((i) => i.componentId === componentId);
+  /* ── Adjust ingredient — always reads latest activeIdxRef ── */
+  function adjust(componentId: string, delta: number) {
+    const idx = activeIdxRef.current;
 
-        if (idx >= 0) {
-          const newQty = Math.max(0, Math.min(MAX_PER_COMPONENT, ingredients[idx].quantity + delta));
-          if (newQty === 0) {
-            ingredients.splice(idx, 1);
-          } else {
-            ingredients[idx] = { ...ingredients[idx], quantity: newQty };
-          }
-        } else if (delta > 0) {
-          const catalog = ALL_COMPONENTS.find((c) => c.componentId === componentId);
-          if (!catalog) return prev;
-          const total = ingredients.length;
-          const pos = platePosition(total, total + 1);
-          ingredients.push({
-            componentId: catalog.componentId,
-            label: catalog.label,
-            emoji: catalog.emoji,
-            priceEach: catalog.priceEach,
-            calsEach: catalog.calsEach,
-            quantity: 1,
-            ...pos,
-          });
+    setMeals((prev) => {
+      const updated = [...prev];
+      const meal = { ...updated[idx] };
+      const ingredients = [...meal.ingredients];
+      const ingIdx = ingredients.findIndex((i) => i.componentId === componentId);
+
+      if (ingIdx >= 0) {
+        const newQty = Math.max(0, Math.min(MAX_PER_COMPONENT, ingredients[ingIdx].quantity + delta));
+        if (newQty === 0) {
+          ingredients.splice(ingIdx, 1);
+        } else {
+          ingredients[ingIdx] = { ...ingredients[ingIdx], quantity: newQty };
         }
+      } else if (delta > 0) {
+        const catalog = ALL_COMPONENTS.find((c) => c.componentId === componentId);
+        if (!catalog) return prev;
+        const total = ingredients.length;
+        const pos = platePosition(total, total + 1);
+        ingredients.push({
+          componentId: catalog.componentId,
+          label: catalog.label,
+          emoji: catalog.emoji,
+          priceEach: catalog.priceEach,
+          calsEach: catalog.calsEach,
+          quantity: 1,
+          ...pos,
+        });
+      }
 
-        meal.ingredients = ingredients;
-        updated[activeMealIndex] = recalcMeal(meal);
-        return updated;
-      });
+      meal.ingredients = ingredients;
+      updated[idx] = recalcMeal(meal);
+      return updated;
+    });
 
-      // Fire API calc
-      const nextComponents = (() => {
-        const meal = meals[activeMealIndex];
-        const ings = [...meal.ingredients];
-        const idx = ings.findIndex((i) => i.componentId === componentId);
-        const result: Array<{ componentId: string; quantity: number }> = [];
-
-        for (const ing of ings) {
-          if (ing.componentId === componentId) {
-            const q = Math.max(0, Math.min(MAX_PER_COMPONENT, ing.quantity + delta));
-            if (q > 0) result.push({ componentId: ing.componentId, quantity: q });
-          } else {
-            result.push({ componentId: ing.componentId, quantity: ing.quantity });
-          }
-        }
-        if (idx < 0 && delta > 0) {
-          result.push({ componentId, quantity: 1 });
-        }
-        return result;
-      })();
-
-      calcMutation.mutate({
-        vendorId: VENDOR_ID,
-        baseItemId: BASE_ITEM_ID,
-        components: nextComponents,
-      });
-    },
-    [activeMealIndex, meals, calcMutation],
-  );
+    // Fire API calc using current meal state from ref
+    const currentMeal = mealsRef.current[idx];
+    calcMutation.mutate(buildCalcPayload(currentMeal, componentId, delta));
+  }
 
   /* ── DnD handlers ────────────────────────────────── */
   function handleDragStart(event: DragStartEvent) {
@@ -250,31 +256,42 @@ export function MealBuilderPage() {
   function handleDragEnd(event: DragEndEvent) {
     setDragId(null);
     if (event.over?.id !== 'meal-plate') return;
-    const componentId = event.active.id as string;
-    adjust(componentId, 1);
+    adjust(event.active.id as string, 1);
   }
 
   /* ── Remove from plate ───────────────────────────── */
   function removeFromPlate(componentId: string) {
+    const idx = activeIdxRef.current;
+
     setMeals((prev) => {
       const updated = [...prev];
-      const meal = { ...updated[activeMealIndex] };
+      const meal = { ...updated[idx] };
       meal.ingredients = meal.ingredients.filter((i) => i.componentId !== componentId);
-      updated[activeMealIndex] = recalcMeal(meal);
+      updated[idx] = recalcMeal(meal);
       return updated;
     });
+
+    const currentMeal = mealsRef.current[idx];
+    const remaining = currentMeal.ingredients
+      .filter((i) => i.componentId !== componentId)
+      .map((i) => ({ componentId: i.componentId, quantity: i.quantity }));
+
     calcMutation.mutate({
-      ...payload,
-      components: payload.components.filter((c) => c.componentId !== componentId),
+      vendorId: VENDOR_ID,
+      baseItemId: BASE_ITEM_ID,
+      components: remaining,
     });
   }
 
   /* ── Multi-meal management ───────────────────────── */
   function addMeal() {
     if (meals.length >= MAX_MEALS) return;
-    const n = meals.length + 1;
-    setMeals((prev) => [...prev, createEmptyMeal(n)]);
-    setActiveMealIndex(meals.length);
+    setMeals((prev) => {
+      const newMeals = [...prev, createEmptyMeal(prev.length + 1)];
+      // Set active index inside the updater so it's in sync
+      requestAnimationFrame(() => setActiveMealIndex(newMeals.length - 1));
+      return newMeals;
+    });
   }
 
   function removeMeal(index: number) {

@@ -9,5 +9,5 @@ FROM eclipse-temurin:21-jre
 WORKDIR /opt/app
 RUN useradd -m zimbite
 USER zimbite
-COPY --from=build /app/services/user-service/target/*.jar app.jar
+COPY --from=build /app/services/user-service/target/user-service-0.1.0-SNAPSHOT.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

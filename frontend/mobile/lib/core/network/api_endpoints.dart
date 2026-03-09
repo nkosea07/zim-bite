@@ -118,4 +118,22 @@ class ApiEndpoints {
   /// Returns `/api/v1/deliveries/{deliveryId}/chat`.
   static String deliveryChat(String deliveryId) =>
       '$_base/deliveries/$deliveryId/chat';
+
+  // ── Vendor Dashboard ────────────────────────────────────────────────────
+  /// Returns `/api/v1/vendors/{id}/stats`.
+  static String vendorStats(String vendorId) =>
+      '$_base/vendors/$vendorId/stats';
+
+  /// Returns `/api/v1/menu/items/{itemId}/availability`.
+  static String menuItemAvailability(String itemId) =>
+      '$_base/menu/items/$itemId/availability';
+
+  // ── Analytics ───────────────────────────────────────────────────────────
+  /// Returns `/api/v1/analytics/vendor/{vendorId}/dashboard`.
+  static String vendorDashboardAnalytics(String vendorId) =>
+      '$_base/analytics/vendor/$vendorId/dashboard';
+
+  static const String adminOverview = '$_base/analytics/admin/overview';
+
+  static const String revenueTrends = '$_base/analytics/revenue';
 }
